@@ -30,8 +30,15 @@ Este ficheiro alinha as decisões partilhadas entre quem faz a Parte 1, Parte 2 
 
 ---
 
-## 3. Notas dos Ficheiros de Entrada (preencher no Passo 6)
+## 3. Notas dos Ficheiros de Entrada (verificado em `C1_files/`)
 
-- Formato de `employees.csv` / `employees_v2.csv`: *(a preencher)*
-- Formato de `access-policy.csv`: *(a preencher)*
-- Formato dos timestamps e linhas de `logs/auth.log*`: *(a preencher)*
+- **Formato de `employees.csv` e `employees_v2.csv`:**
+  - Codificação **UTF-8 com BOM** (`\xef\xbb\xbf` no início da 1.ª linha) e quebras de linha **CRLF (`\r\n`)**. O parser da Parte 1 **tem** de remover BOM e `\r`.
+  - Casos de teste reais já presentes nos CSVs: linha em branco, espaços à volta dos campos (` Jorge `, `Staff `), maiúsculas/minúsculas mistas (`Sales`), departamento desconhecido (`logistics`), `employee_id` duplicado (`E1015`), `role` em falta (`E1034`), `intern` sem `end_date` (`E1037`), e em `v2`: mudança de nome (`E1008`), mudança de departamento (`E1004`), mudança de role (`E1013`, `E1017` intern→staff), offboarding (`E1011`, `E1012`), e desaparecimento do CSV sem `left` (`E1030`).
+- **Formato de `access-policy.csv`:**
+  - ASCII `LF`, 17 linhas (cabeçalho `folder,group,access` + 16 regras).
+  - Inclui subpasta `/srv/company/hr/payroll` (onde `finance` tem `r-x`, mas `finance` **não** tem acesso a `/srv/company/hr` — caso de travessia mínima!) e pasta partilhada `/srv/company/public` (não é departamento).
+- **Formato de `logs/auth.log*`:**
+  - 5 ficheiros (`auth.log`, `auth.log.1`, `auth.log.2.gz` a `auth.log.4.gz`, total ~236 KB).
+  - Timestamps ISO 8601 com microssegundos e timezone (ex: `2026-10-30T00:17:01.765742+00:00`), hostname `srv-files01`.
+  - Serviços presentes: `CRON`, `passwd`, `sshd`, `sudo`, `systemd-logind`, `useradd`.

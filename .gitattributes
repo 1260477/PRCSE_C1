@@ -1,0 +1,10 @@
+# Normalizar quebras de linha para evitar erros em scripts Bash no Ubuntu
+* text=auto eol=lf
+*.sh text eol=lf
+*.cron text eol=lf
+*.csv text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.pdf binary
+*.pptx binary
+*.png binary

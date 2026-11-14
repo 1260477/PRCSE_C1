@@ -1,0 +1,16 @@
+# Pacotes finais e ficheiros temporários
+*.zip
+*.tar.gz
+*.tmp
+*.swp
+*~
+.DS_Store
+
+# Logs e saídas de teste locais
+*.log
+/tmp/
+
+# Python (caso usem para o gráfico opcional da Parte 3)
+__pycache__/
+*.pyc
+.venv/

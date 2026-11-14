@@ -1,0 +1,2 @@
+# Placeholder: será substituído pelo output real de:
+# ./part3/analyze_auth.sh ../C1_files/logs/auth.log* > part3/output.txt

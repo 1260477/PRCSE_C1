@@ -1,0 +1,5 @@
+# /etc/cron.d/audit — Daily security audit at 06:00 as root
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+0 6 * * * root /usr/local/sbin/audit.sh --policy /etc/srv-files01/access-policy.csv >/dev/null 2>&1

@@ -8,9 +8,9 @@
 
 | Name | Student Number | Responsibilities |
 | :--- | :--- | :--- |
-| *(Nome 1)* | *(Número)* | Part 1 (`provision.sh`), Part 1 tests, ... |
-| *(Nome 2)* | *(Número)* | Part 2 (`audit.sh`, `audit.cron`), Part 2 tests, ... |
-| *(Nome 3)* | *(Número)* | Part 3 (`analyze_auth.sh`), Incident Report, Part 3 tests, ... |
+| Hugo Filipe Correia Costeira | *(Número)* | Part 1 (`provision.sh`), Part 1 tests, Approach & Test Scenarios (Part 1), AI Case 1 |
+| José Paulo Ferreira De Sousa | *(Número)* | Part 2 (`audit.sh`, `audit.cron`), Part 2 tests, Approach & Test Scenarios (Part 2), AI Case 2 |
+| José Luis Figueiredo De Freitas | *(Número)* | Part 3 (`analyze_auth.sh`, `output.txt`), Part 3 tests, Incident Report, AI Case 3 |
 
 ---
 

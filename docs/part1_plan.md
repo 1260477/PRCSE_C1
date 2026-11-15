@@ -24,19 +24,19 @@
 ---
 
 ## Fase 1 — Leitura, Limpeza e Validação dos CSVs (Secção 1.1)
-- [ ] **1.1** Ler `access-policy.csv`, normalizar quebras de linha, ignorar linhas em branco, validar formato `folder,group,access` (`rwx` ou `r-x`).
-- [ ] **1.2** Extrair departamentos válidos dinamicamente da política: pastas de topo `/srv/company/<nome>` que tenham regra para o grupo `<nome>` (excluindo `public`).
-- [ ] **1.3** Ler `employees.csv`: remover UTF-8 BOM (`\xef\xbb\xbf`), converter CRLF (`\r\n`) para LF, ignorar linhas em branco, fazer trim aos campos e tratar `department`, `role` e `status` sem distinção entre maiúsculas/minúsculas.
-- [ ] **1.4** Validar cada linha e rejeitar (imprimindo nº de linha + motivo, continuando para a próxima e marcando `exit 2`):
-  - [ ] Campo obrigatório em falta (`employee_id`, `first_name`, `last_name`, `department`, `role`, `status`).
-  - [ ] `department` não pertence aos departamentos válidos da política.
-  - [ ] `role` inválido (apenas `staff`, `manager`, `intern`).
-  - [ ] `status` inválido (apenas `active`, `left`).
-  - [ ] `employee_id` duplicado numa linha anterior (manter o primeiro).
-  - [ ] `intern` sem `end_date` válido (`YYYY-MM-DD`).
-- [ ] **1.5** Gerar username: `1.ª letra de first_name` + `última palavra de last_name`, minúsculas, sem acentos (`iconv`), apenas `a-z`.
-- [ ] **1.6** Resolver colisões (`2`, `3`, …) por ordem do ficheiro contra contas do sistema e um registo persistente de usernames já atribuídos (nunca reutilizar um username mesmo após offboarding).
-- [ ] **1.7** Reconhecer utilizadores existentes pelo `employee_id` no campo GECOS/comment `First Last (E1001)` (se o nome mudar, atualiza o comment mas mantém o username).
+- [x] **1.1** Ler `access-policy.csv`, normalizar quebras de linha, ignorar linhas em branco, validar formato `folder,group,access` (`rwx` ou `r-x`).
+- [x] **1.2** Extrair departamentos válidos dinamicamente da política: pastas de topo `/srv/company/<nome>` que tenham regra para o grupo `<nome>` (excluindo `public`).
+- [x] **1.3** Ler `employees.csv`: remover UTF-8 BOM (`\xef\xbb\xbf`), converter CRLF (`\r\n`) para LF, ignorar linhas em branco, fazer trim aos campos e tratar `department`, `role` e `status` sem distinção entre maiúsculas/minúsculas.
+- [x] **1.4** Validar cada linha e rejeitar (imprimindo nº de linha + motivo, continuando para a próxima e marcando `exit 2`):
+  - [x] Campo obrigatório em falta (`employee_id`, `first_name`, `last_name`, `department`, `role`, `status`).
+  - [x] `department` não pertence aos departamentos válidos da política.
+  - [x] `role` inválido (apenas `staff`, `manager`, `intern`).
+  - [x] `status` inválido (apenas `active`, `left`).
+  - [x] `employee_id` duplicado numa linha anterior (manter o primeiro).
+  - [x] `intern` sem `end_date` válido (`YYYY-MM-DD`).
+- [x] **1.5** Gerar username: `1.ª letra de first_name` + `última palavra de last_name`, minúsculas, sem acentos (`iconv`), apenas `a-z`.
+- [x] **1.6** Resolver colisões (`2`, `3`, …) por ordem do ficheiro contra contas do sistema e um registo persistente de usernames já atribuídos (nunca reutilizar um username mesmo após offboarding).
+- [x] **1.7** Reconhecer utilizadores existentes pelo `employee_id` no campo GECOS/comment `First Last (E1001)` (se o nome mudar, atualiza o comment mas mantém o username).
 
 ---
 

@@ -7,6 +7,7 @@
 > 3. **Análise crítica:** O assistente verifica criticamente a tua explicação (nunca assume que está tudo certo), valida o que está correto e aponta erros, omissões ou armadilhas.
 > 4. **Desenvolvimento:** Tu tentas implementar o passo (ou pedes ajuda/código ao assistente quando quiseres). **Usar sempre sintaxe Bash simples e legível, com comentários claros no código** (evitar expansões crípticas, já que tens de conseguir explicar cada linha na defesa).
 > 5. **Resumo e Enquadramento (`C1.pdf`):** O assistente explica o que foi feito no passo e verifica no `C1.pdf` se exige registo no `README.md`, `report.pdf` ou testes em `tests/part1/`.
+> 6. **Fecho de Fase:** Sempre que uma fase termina, atualizar o [part1_study_guide.md](file:///home/hcosteira/Documents/C1/Resolucao/docs/part1_study_guide.md) com as decisões, soluções e sintaxe explicada, e criar/correr os respetivos testes automatizados em `tests/part1/`.
 
 > [!NOTE]
 > Este documento serve como **painel de estado vivo** da Parte 1. À medida que cada item for implementado e verificado, a respetiva caixa será marcada (`[x]`), permitindo-te consultar a qualquer momento o que já está feito e o que falta face ao enunciado (`C1.pdf`) e ao contrato (`docs/contracts.md`).

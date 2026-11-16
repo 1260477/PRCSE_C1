@@ -170,6 +170,13 @@ read_logs() {
     # - uniq: remove linhas exatamente iguais (assunção 5); só funciona em linhas
     #   adjacentes, por isso tem de vir depois do sort
     # - LC_ALL=C: compara byte a byte; resultado igual em qualquer máquina e mais rápido
+
+    # Se não houver nenhum evento (ex: todos os ficheiros vazios), não há nada a analisar.
+    # -s é verdadeiro se o ficheiro existir e tiver tamanho > 0.
+    # O trap EXIT apaga o ficheiro temporário mesmo saindo por aqui.
+    if [[ ! -s "$EVENTS_FILE" ]]; then
+        fatal "No log entries found in the given files."
+    fi
 }
 
 main() {

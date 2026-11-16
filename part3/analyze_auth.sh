@@ -96,16 +96,46 @@ parse_args() {
     fi
 }
 
+# Verifica se um ficheiro está comprimido com gzip pelo conteúdo, não pela extensão:
+# os 2 primeiros bytes de um ficheiro gzip são sempre 1f 8b ("magic number")
+is_gzip() {
+    local file="$1"
+    local magic
+
+    # head -c 2 lê 2 bytes; od -An -tx1 mostra-os em hexadecimal (ex: " 1f 8b")
+    magic="$(head -c 2 "$file" | od -An -tx1 | tr -d ' \n')"
+    [[ "$magic" == "1f8b" ]]
+}
+
 # Valida os ficheiros de entrada (não precisa de root: só lê os logs)
+# - Ficheiro inexistente ou ilegível: erro fatal
+# - Ficheiro gzip corrompido: aviso e é ignorado (a análise continua com os restantes)
 check_pre_reqs() {
     local file
+    local valid_files=()
 
-    # Cada ficheiro tem de ser um ficheiro regular e legível
     for file in "${LOG_FILES[@]}"; do
+        # Cada ficheiro tem de ser um ficheiro regular e legível
         if [[ ! -f "$file" || ! -r "$file" ]]; then
             fatal "Log file not found or not readable: $file"
         fi
+
+        # Se for gzip, gzip -t testa a integridade sem descomprimir para o disco
+        if is_gzip "$file" && ! gzip -t "$file" 2>/dev/null; then
+            echo "Warning: compressed file is corrupted, skipping: $file" >&2
+            continue
+        fi
+
+        valid_files+=("$file")
     done
+
+    # Se todos os ficheiros foram ignorados, não há nada para analisar
+    if [[ "${#valid_files[@]}" -eq 0 ]]; then
+        fatal "No valid log files to analyze."
+    fi
+
+    # Daqui em diante só se usam os ficheiros válidos
+    LOG_FILES=("${valid_files[@]}")
 }
 
 main() {

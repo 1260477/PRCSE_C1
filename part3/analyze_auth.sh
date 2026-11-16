@@ -15,6 +15,9 @@ TOP_N=10             # -t: quantos IPs/usernames mostrar nos tops
 # Ficheiros de log recebidos na linha de comandos (plain ou .gz, qualquer ordem)
 LOG_FILES=()
 
+# Ficheiro temporário com os eventos já preparados (criado em read_logs)
+EVENTS_FILE=""
+
 # Mostra as instruções de utilização do script
 usage() {
     cat <<'EOF'
@@ -140,7 +143,33 @@ check_pre_reqs() {
 
 # Lê todos os ficheiros de LOG_FILES (plain ou gzip) e prepara os eventos por ordem cronológica
 read_logs() {
-    :   # TODO: por implementar
+    # mktemp cria um ficheiro com nome único, de forma atómica e com permissões 600
+    EVENTS_FILE="$(mktemp)" || fatal "Could not create temporary file."
+
+    # Apaga o ficheiro temporário sempre que o script termina (normal, erro ou Ctrl+C).
+    # As aspas simples adiam a expansão de $EVENTS_FILE para o momento da saída.
+    trap 'rm -f "$EVENTS_FILE"' EXIT
+
+    # Junta o conteúdo de todos os ficheiros no ficheiro temporário.
+    # O gzip é detetado pelo conteúdo (is_gzip), não pela extensão (assunção 1).
+    local file
+    for file in "${LOG_FILES[@]}"; do
+        if is_gzip "$file"; then
+            # gzip -dc descomprime para o stdout, sem alterar o ficheiro original
+            gzip -dc "$file"
+        else
+            cat "$file"
+        fi | awk 1
+        # awk 1: imprime cada linha seguida de \n, incluindo a última. Garante que cada
+        # ficheiro termina com quebra de linha, para que a última linha de um ficheiro
+        # não fique colada à primeira do seguinte. Fica depois do 'fi' (e não do 'done')
+        # para atuar em cada ficheiro, seja texto ou gzip.
+    done | LC_ALL=C sort | LC_ALL=C uniq > "$EVENTS_FILE"
+    # - sort: o timestamp ISO 8601 está no início da linha, por isso a ordem
+    #   alfabética da linha inteira é a ordem cronológica
+    # - uniq: remove linhas exatamente iguais (assunção 5); só funciona em linhas
+    #   adjacentes, por isso tem de vir depois do sort
+    # - LC_ALL=C: compara byte a byte; resultado igual em qualquer máquina e mais rápido
 }
 
 main() {

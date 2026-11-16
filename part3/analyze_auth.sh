@@ -138,9 +138,15 @@ check_pre_reqs() {
     LOG_FILES=("${valid_files[@]}")
 }
 
+# Lê todos os ficheiros de LOG_FILES (plain ou gzip) e prepara os eventos por ordem cronológica
+read_logs() {
+    :   # TODO: por implementar
+}
+
 main() {
     parse_args "$@"
     check_pre_reqs
+    read_logs
 
     echo "TODO: implement analyze_auth.sh" >&2
     exit "$EXIT_FATAL"

@@ -105,3 +105,30 @@ O `provision.sh` segue uma abordagem **fail-fast na estrutura e resiliente nos d
 - **Segurança & Robustez:** `set -euo pipefail`, limpeza de BOM/CRLF sem alterar ficheiros originais, `LC_ALL=C.UTF-8` no `iconv`, separação clara entre erro fatal (`exit 1`) e rejeição de linha (`exit 2`).
 - **Zero Hard-coding:** departamentos extraídos dinamicamente da política (`access-policy.csv` como fonte única de verdade).
 - **Rastreabilidade de identidade:** ligação imutável por `employee_id` no campo GECOS + histórico persistente de usernames para impedir reutilização após *offboarding*.
+
+---
+
+## Fase 2 — Contas de Utilizador e Grupos
+
+### O que foi implementado e porquê
+1. **Grupos dinâmicos e globais (`ensure_groups`):**
+   - Junta `VALID_DEPARTMENTS` (vindos da política) com `GLOBAL_GROUPS=("employees" "managers")`, sem duplicados.
+   - Verifica com `getent group "$grp"` antes de chamar `groupadd "$grp"`, garantindo idempotência e sem usar `sudo` dentro do script (o script já corre como `root`).
+2. **Contas de utilizador e GECOS (`ensure_users`):**
+   - Processa apenas `status = active`.
+   - Para contas existentes (identificadas por `employee_id` no GECOS), compara o GECOS atual com `First Last (ID)` e só corre `usermod -c` se o nome tiver mudado.
+   - Para contas novas, cria com `useradd -m -d "/home/$username" -s /bin/bash -c "$expected_gecos" "$username"`, aplica `chmod 0700` à pasta home e regista o username em `/var/lib/provision/usernames.txt`.
+3. **Passwords iniciais seguras (`generate_password`, `save_initial_password`):**
+   - Lê 256 bytes de `/dev/urandom`, filtra para caracteres seguros (sem `:`) e usa `cut -c1-16` (evitando `head -c 16`, que causaria `SIGPIPE` em `tr` com `set -o pipefail`).
+   - Aplica via `printf '%s:%s\n' ... | chpasswd` (sem expor a password nos argumentos do processo), força troca no 1.º login com `chage -d 0` e guarda em `/root/initial-passwords.txt` com `chmod 0600`.
+4. **Política de expiração de password e de conta (`ensure_password_policy`, `ensure_account_expiry`):**
+   - `chage -M 180 -W 14` para todos os utilizadores ativos. Para contas existentes, consulta `LC_ALL=C chage -l` (de forma segura, sem falhar em `--dry-run` sem `root`) para só alterar quando houver diferença real.
+   - Para `intern`, aplica `chage -E <end_date>`; se deixar de ser `intern`, remove a expiração com `chage -E -1`. Como `LC_ALL=C chage -l` imprime a data em formato legível (ex.: `Dec 31, 2026`), converte-se com `date -d ... '+%Y-%m-%d'` para comparar com o CSV.
+5. **Sincronização de grupos e regra `sudo` (`ensure_user_groups`, `ensure_sudo_access`):**
+   - Garante que cada utilizador ativo pertence exatamente a `<dept>`, `employees` e `managers` (só se `role == manager`), adicionando os em falta (`usermod -aG`) e removendo grupos geridos antigos (`gpasswd -d`).
+   - Em `sudo`, adiciona apenas `active` não-`intern` do departamento `it` e remove qualquer utilizador gerido que tenha deixado de cumprir essa condição (sem tocar em contas de administração do próprio sistema).
+
+### Sintaxe Bash para recordar na defesa
+- `${EXISTING_EMP_USER["$emp_id"]:-}`: o `:-` devolve string vazia se a chave não existir no dicionário, evitando erro com `set -u`.
+- `LC_ALL=C chage -l "$username"`: força o output em inglês independentemente do idioma do sistema operativo.
+- `IFS=',' read -r -a arr <<< "$csv"`: divide uma string separada por vírgulas diretamente para um array Bash.

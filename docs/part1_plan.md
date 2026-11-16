@@ -42,13 +42,13 @@
 ---
 
 ## Fase 2 — Contas de Utilizador e Grupos (Secção 1.2)
-- [ ] **2.1** Criar grupos em falta: 1 por departamento + `employees` + `managers`.
-- [ ] **2.2** Criar novas contas com home `/home/<username>` (`0700`), shell `/bin/bash` e comment `First Last (ID)`.
-- [ ] **2.3** Gerar password aleatória (≥ 16 caracteres) para novas contas, guardar em `/root/initial-passwords.txt` (permissões `0600` só `root`), nunca imprimir no ecrã/log, e forçar troca no 1.º login (`chage -d 0`).
-- [ ] **2.4** Aplicar regra de expiração de password: 180 dias, aviso 14 dias antes (`chage -M 180 -W 14`).
-- [ ] **2.5** Aplicar expiração de conta para `intern` (`chage -E <end_date>`) e remover expiração se passar a `staff`/`manager` (`chage -E -1`).
-- [ ] **2.6** Sincronizar pertença exata a grupos (departamento atual + `employees` + `managers` se `manager`), adicionando novos e removendo antigos quando muda departamento/role.
-- [ ] **2.7** Aplicar regra `sudo`: apenas membros `active` não-intern do departamento `it` pertencem a `sudo` (remover qualquer outro).
+- [x] **2.1** Criar grupos em falta: 1 por departamento + `employees` + `managers`.
+- [x] **2.2** Criar novas contas com home `/home/<username>` (`0700`), shell `/bin/bash` e comment `First Last (ID)`.
+- [x] **2.3** Gerar password aleatória (≥ 16 caracteres) para novas contas, guardar em `/root/initial-passwords.txt` (permissões `0600` só `root`), nunca imprimir no ecrã/log, e forçar troca no 1.º login (`chage -d 0`).
+- [x] **2.4** Aplicar regra de expiração de password: 180 dias, aviso 14 dias antes (`chage -M 180 -W 14`).
+- [x] **2.5** Aplicar expiração de conta para `intern` (`chage -E <end_date>`) e remover expiração se passar a `staff`/`manager` (`chage -E -1`).
+- [x] **2.6** Sincronizar pertença exata a grupos (departamento atual + `employees` + `managers` se `manager`), adicionando novos e removendo antigos quando muda departamento/role.
+- [x] **2.7** Aplicar regra `sudo`: apenas membros `active` não-intern do departamento `it` pertencem a `sudo` (remover qualquer outro).
 
 ---
 

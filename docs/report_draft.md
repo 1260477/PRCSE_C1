@@ -70,6 +70,8 @@
 | Brute force & password spray | ... | ... | ... |
 | Normal typo from usual IP (must NOT trigger) | ... | ... | ... |
 | Out-of-order `.gz` + plain logs | ... | ... | ... |
+| Corrupted `.gz` among valid files | `tests/part3/data/`: `random.txt` (texto aleatório), `valid.gz` (gzip válido), `corrupt.gz` (`valid.gz` cortado a meio). `./part3/analyze_auth.sh tests/part3/data/random.txt tests/part3/data/valid.gz tests/part3/data/corrupt.gz` | `corrupt.gz` ignorado com aviso; os outros dois aceites e a análise continua | `Warning: compressed file is corrupted, skipping: tests/part3/data/corrupt.gz`; a execução continua com os outros dois ficheiros (análise ainda por implementar) |
+| Valid text + valid `.gz` (must NOT warn) | Os mesmos `random.txt` e `valid.gz`. `./part3/analyze_auth.sh tests/part3/data/random.txt tests/part3/data/valid.gz` | Nenhum aviso; os dois ficheiros aceites | Nenhum aviso; a execução continua com os dois ficheiros (análise ainda por implementar) |
 
 ---
 

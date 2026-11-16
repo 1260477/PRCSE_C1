@@ -12,6 +12,9 @@ readonly LOG_FILE="/var/log/provision.log"
 # Registo persistente de usernames já atribuídos (nunca reutilizar, mesmo após offboarding)
 readonly USERNAME_HISTORY_FILE="/var/lib/provision/usernames.txt"
 
+# Ficheiro onde ficam guardadas as passwords iniciais das novas contas (só root lê)
+readonly INITIAL_PASSWORDS_FILE="/root/initial-passwords.txt"
+
 # Variáveis globais para opções, caminhos dos CSVs e contadores de estado
 DRY_RUN=0
 EMP_CSV=""
@@ -31,6 +34,9 @@ VALID_DEPARTMENTS=()
 # Valores permitidos para role e status (Secção 1.1)
 readonly VALID_ROLES=("staff" "manager" "intern")
 readonly VALID_STATUSES=("active" "left")
+
+# Grupos globais obrigatórios além dos departamentos (Secção 1.2)
+readonly GLOBAL_GROUPS=("employees" "managers")
 
 # Estruturas em memória para os funcionários válidos lidos de employees.csv:
 # - EMP_IDS guarda os employee_id pela ordem do ficheiro
@@ -564,6 +570,283 @@ record_used_username() {
     fi
 }
 
+# Garante que existem todos os grupos necessários: 1 por departamento + employees + managers
+ensure_groups() {
+    local target_groups=()
+    local grp
+
+    # Junta os departamentos válidos e os grupos globais sem duplicados
+    for grp in "${VALID_DEPARTMENTS[@]}" "${GLOBAL_GROUPS[@]}"; do
+        if [[ ${#target_groups[@]} -eq 0 ]] || ! in_array "$grp" "${target_groups[@]}"; then
+            target_groups+=("$grp")
+        fi
+    done
+
+    # Cria cada grupo apenas se ainda não existir no sistema (idempotência)
+    for grp in "${target_groups[@]}"; do
+        if ! getent group "$grp" >/dev/null 2>&1; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                groupadd "$grp"
+            fi
+            log_change "Created group '$grp'"
+        fi
+    done
+}
+
+# Gera uma password aleatória com 16 caracteres (sem ':' para não quebrar o chpasswd)
+generate_password() {
+    head -c 256 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9@#%^*_+=-' | cut -c1-16
+}
+
+# Guarda o par username:password em /root/initial-passwords.txt com permissões 0600
+save_initial_password() {
+    local username="$1"
+    local password="$2"
+
+    if [[ ! -f "$INITIAL_PASSWORDS_FILE" ]]; then
+        touch "$INITIAL_PASSWORDS_FILE"
+    fi
+    chmod 0600 "$INITIAL_PASSWORDS_FILE"
+    printf '%s:%s\n' "$username" "$password" >> "$INITIAL_PASSWORDS_FILE"
+}
+
+# Garante que a conta tem expiração de password de 180 dias e aviso de 14 dias
+ensure_password_policy() {
+    local username="$1"
+    local is_new="$2"
+    local needs_update=0
+
+    if [[ "$is_new" -eq 1 ]]; then
+        needs_update=1
+    else
+        # chage -l lê /etc/shadow (só root); se falhar em --dry-run sem root, ignora com segurança
+        local chage_out
+        if chage_out="$(LC_ALL=C chage -l "$username" 2>/dev/null)"; then
+            local max_days warn_days
+            max_days="$(echo "$chage_out" | awk -F': ' '/Maximum number of days between password change/{print $2}')"
+            warn_days="$(echo "$chage_out" | awk -F': ' '/Number of days of warning before password expires/{print $2}')"
+            if [[ "$max_days" != "180" || "$warn_days" != "14" ]]; then
+                needs_update=1
+            fi
+        fi
+    fi
+
+    if [[ "$needs_update" -eq 1 ]]; then
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            chage -M 180 -W 14 "$username"
+        fi
+        log_change "Set password aging for '$username' (max 180 days, warn 14 days)"
+    fi
+}
+
+# Aplica expiração de conta para intern (chage -E <end_date>) e remove para staff/manager (chage -E -1)
+ensure_account_expiry() {
+    local username="$1"
+    local role="$2"
+    local end_date="$3"
+    local is_new="$4"
+
+    if [[ "$role" == "intern" ]]; then
+        local needs_update=0
+        if [[ "$is_new" -eq 1 ]]; then
+            needs_update=1
+        else
+            local chage_out
+            if chage_out="$(LC_ALL=C chage -l "$username" 2>/dev/null)"; then
+                local exp_raw current_exp=""
+                exp_raw="$(echo "$chage_out" | awk -F': ' '/Account expires/{print $2}')"
+                if [[ "$exp_raw" != "never" && -n "$exp_raw" ]]; then
+                    current_exp="$(date -d "$exp_raw" '+%Y-%m-%d' 2>/dev/null || true)"
+                fi
+                if [[ "$current_exp" != "$end_date" ]]; then
+                    needs_update=1
+                fi
+            fi
+        fi
+
+        if [[ "$needs_update" -eq 1 ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                chage -E "$end_date" "$username"
+            fi
+            log_change "Set account expiry for intern '$username' to $end_date"
+        fi
+    else
+        # Contas novas não-intern já nascem sem expiração; só verifica contas existentes
+        if [[ "$is_new" -eq 0 ]]; then
+            local chage_out
+            if chage_out="$(LC_ALL=C chage -l "$username" 2>/dev/null)"; then
+                local exp_raw
+                exp_raw="$(echo "$chage_out" | awk -F': ' '/Account expires/{print $2}')"
+                if [[ "$exp_raw" != "never" && -n "$exp_raw" ]]; then
+                    if [[ "$DRY_RUN" -eq 0 ]]; then
+                        chage -E -1 "$username"
+                    fi
+                    log_change "Removed account expiry for '$username' (role: $role)"
+                fi
+            fi
+        fi
+    fi
+}
+
+# Sincroniza pertença exata a grupos geridos (departamento atual + employees + managers se manager)
+ensure_user_groups() {
+    local username="$1"
+    local dept="$2"
+    local role="$3"
+    local is_new="$4"
+
+    local target_groups=("$dept" "employees")
+    if [[ "$role" == "manager" ]]; then
+        target_groups+=("managers")
+    fi
+
+    local current_groups=()
+    if [[ "$is_new" -eq 0 ]]; then
+        read -r -a current_groups <<< "$(id -nG "$username")"
+    fi
+
+    # Adiciona grupos em falta
+    local grp
+    for grp in "${target_groups[@]}"; do
+        if [[ ${#current_groups[@]} -eq 0 ]] || ! in_array "$grp" "${current_groups[@]}"; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                usermod -aG "$grp" "$username"
+            fi
+            log_change "Added '$username' to group '$grp'"
+        fi
+    done
+
+    # Remove grupos geridos antigos (ex: mudou de departamento ou deixou de ser manager)
+    if [[ "$is_new" -eq 0 && ${#current_groups[@]} -gt 0 ]]; then
+        local managed_groups=("${VALID_DEPARTMENTS[@]}" "${GLOBAL_GROUPS[@]}")
+        for grp in "${current_groups[@]}"; do
+            if in_array "$grp" "${managed_groups[@]}" && ! in_array "$grp" "${target_groups[@]}"; then
+                if [[ "$DRY_RUN" -eq 0 ]]; then
+                    gpasswd -d "$username" "$grp" >/dev/null
+                fi
+                log_change "Removed '$username' from group '$grp'"
+            fi
+        done
+    fi
+}
+
+# Cria contas novas para funcionários ativos e atualiza o GECOS se o nome mudou
+ensure_users() {
+    if [[ ${#EMP_IDS[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    local emp_id
+    for emp_id in "${EMP_IDS[@]}"; do
+        local status="${EMP_STATUS["$emp_id"]}"
+        if [[ "$status" != "active" ]]; then
+            continue
+        fi
+
+        local username="${EMP_USERNAME["$emp_id"]}"
+        local first="${EMP_FIRST["$emp_id"]}"
+        local last="${EMP_LAST["$emp_id"]}"
+        local expected_gecos="${first} ${last} (${emp_id})"
+        local home_dir="/home/${username}"
+        local is_new=0
+
+        # Se já existe uma conta gerida para este employee_id, verifica apenas se o GECOS mudou
+        if [[ -n "${EXISTING_EMP_USER["$emp_id"]:-}" ]]; then
+            local current_gecos="${EXISTING_EMP_GECOS["$emp_id"]:-}"
+            if [[ "$current_gecos" != "$expected_gecos" ]]; then
+                if [[ "$DRY_RUN" -eq 0 ]]; then
+                    usermod -c "$expected_gecos" "$username"
+                fi
+                log_change "Updated GECOS for '$username' ($emp_id): '$current_gecos' -> '$expected_gecos'"
+            fi
+        else
+            is_new=1
+            # Conta nova: cria com home /home/<username> (0700), shell /bin/bash e comment First Last (ID)
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                useradd -m -d "$home_dir" -s /bin/bash -c "$expected_gecos" "$username"
+                chmod 0700 "$home_dir"
+
+                # Gera password aleatória (>= 16 chars), aplica via chpasswd, força troca no 1.º login e guarda em 0600
+                local init_pass
+                init_pass="$(generate_password)"
+                printf '%s:%s\n' "$username" "$init_pass" | chpasswd
+                chage -d 0 "$username"
+                save_initial_password "$username" "$init_pass"
+
+                record_used_username "$username"
+                EXISTING_EMP_USER["$emp_id"]="$username"
+                EXISTING_EMP_GECOS["$emp_id"]="$expected_gecos"
+            fi
+            log_change "Created user '$username' ($emp_id) with home '$home_dir' (password set, must change at first login)"
+        fi
+
+        ensure_password_policy "$username" "$is_new"
+        ensure_account_expiry "$username" "${EMP_ROLE["$emp_id"]}" "${EMP_END_DATE["$emp_id"]:-}" "$is_new"
+        ensure_user_groups "$username" "${EMP_DEPT["$emp_id"]}" "${EMP_ROLE["$emp_id"]}" "$is_new"
+    done
+}
+
+# Garante que apenas membros active não-intern do departamento 'it' pertencem ao grupo sudo
+ensure_sudo_access() {
+    if ! getent group sudo >/dev/null 2>&1; then
+        return 0
+    fi
+
+    # Lista de usernames elegíveis para sudo segundo o CSV atual
+    local sudo_eligible=()
+    local emp_id
+    for emp_id in "${EMP_IDS[@]}"; do
+        if [[ "${EMP_STATUS["$emp_id"]}" == "active" && \
+              "${EMP_DEPT["$emp_id"]}" == "it" && \
+              "${EMP_ROLE["$emp_id"]}" != "intern" ]]; then
+            sudo_eligible+=("${EMP_USERNAME["$emp_id"]}")
+        fi
+    done
+
+    # Lê os membros atuais do grupo sudo
+    local sudo_members_csv
+    sudo_members_csv="$(getent group sudo | awk -F: '{print $4}')"
+    local current_sudo=()
+    if [[ -n "$sudo_members_csv" ]]; then
+        IFS=',' read -r -a current_sudo <<< "$sudo_members_csv"
+    fi
+
+    # Adiciona elegíveis que ainda não estejam em sudo
+    local user
+    for user in "${sudo_eligible[@]}"; do
+        if [[ ${#current_sudo[@]} -eq 0 ]] || ! in_array "$user" "${current_sudo[@]}"; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                usermod -aG sudo "$user"
+            fi
+            log_change "Added '$user' to 'sudo' group (active non-intern IT)"
+        fi
+    done
+
+    # Remove utilizadores geridos que estejam em sudo sem serem elegíveis
+    if [[ ${#current_sudo[@]} -gt 0 ]]; then
+        local managed_users=()
+        local key
+        for key in "${!EXISTING_EMP_USER[@]}"; do
+            managed_users+=("${EXISTING_EMP_USER["$key"]}")
+        done
+        for key in "${!EMP_USERNAME[@]}"; do
+            managed_users+=("${EMP_USERNAME["$key"]}")
+        done
+
+        for user in "${current_sudo[@]}"; do
+            [[ -z "$user" ]] && continue
+            if in_array "$user" "${managed_users[@]}"; then
+                if [[ ${#sudo_eligible[@]} -eq 0 ]] || ! in_array "$user" "${sudo_eligible[@]}"; then
+                    if [[ "$DRY_RUN" -eq 0 ]]; then
+                        gpasswd -d "$user" sudo >/dev/null
+                    fi
+                    log_change "Removed '$user' from 'sudo' group (not active non-intern IT)"
+                fi
+            fi
+        done
+    fi
+}
+
 main() {
     parse_args "$@"
     check_pre_reqs
@@ -573,6 +856,9 @@ main() {
     load_employees
     load_existing_users
     resolve_usernames
+    ensure_groups
+    ensure_users
+    ensure_sudo_access
 
     # Se nenhuma alteração foi feita (ou prevista em --dry-run), informa o utilizador
     if [[ "$CHANGES_MADE" -eq 0 ]]; then

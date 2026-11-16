@@ -179,10 +179,16 @@ read_logs() {
     fi
 }
 
+# Secção 3.2: deteta IPs com >= BRUTE_THRESHOLD falhas de password numa janela de BRUTE_WINDOW minutos
+detect_brute_force() {
+    :   # TODO: por implementar
+}
+
 main() {
     parse_args "$@"
     check_pre_reqs
     read_logs
+    detect_brute_force
 
     echo "TODO: implement analyze_auth.sh" >&2
     exit "$EXIT_FATAL"

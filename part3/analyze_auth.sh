@@ -18,10 +18,24 @@ Options:
 EOF
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-fi
+main() {
+    if (( $# == 0 )); then
+        echo "Error: no log files given. At least one FILE is required." >&2
+        echo >&2
+        usage >&2
+        exit 1
+    fi
 
-echo "TODO: implement analyze_auth.sh" >&2
-exit 1
+    if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+        usage
+        exit 0
+    fi
+
+    echo "TODO: implement analyze_auth.sh" >&2
+    exit 1
+}
+
+# Run main only when executed directly (not when sourced by tests).
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

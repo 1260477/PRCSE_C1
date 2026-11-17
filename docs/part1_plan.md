@@ -53,13 +53,13 @@
 ---
 
 ## Fase 3 — Offboarding e Desaparecimentos (Secção 1.5)
-- [ ] **3.1** Para `status = left` sem conta Linux existente: não fazer nada.
-- [ ] **3.2** Para `status = left` com conta existente:
-  - [ ] Bloquear conta e terminar sessões/processos ativos do utilizador.
-  - [ ] Arquivar home em `/srv/archive/<username>_<employee_id>_<YYYY-MM-DD>.tar.gz` (só `root` lê) e verificar integridade do `.tar.gz` antes de apagar qualquer ficheiro.
-  - [ ] Mudar dono dos ficheiros do utilizador em `/srv/company` para `root` (mantendo o grupo).
-  - [ ] Remover crontab, conta e pasta home.
-- [ ] **3.3** Detetar utilizadores geridos (com `(E...)` no comment) que desapareceram do CSV sem `status = left`: **não remover**, apenas imprimir aviso.
+- [x] **3.1** Para `status = left` sem conta Linux existente: não fazer nada.
+- [x] **3.2** Para `status = left` com conta existente:
+  - [x] Bloquear conta e terminar sessões/processos ativos do utilizador.
+  - [x] Arquivar home em `/srv/archive/<username>_<employee_id>_<YYYY-MM-DD>.tar.gz` (só `root` lê) e verificar integridade do `.tar.gz` antes de apagar qualquer ficheiro.
+  - [x] Mudar dono dos ficheiros do utilizador em `/srv/company` para `root` (mantendo o grupo).
+  - [x] Remover crontab, conta e pasta home.
+- [x] **3.3** Detetar utilizadores geridos (com `(E...)` no comment) que desapareceram do CSV sem `status = left`: **não remover**, apenas imprimir aviso.
 
 ---
 

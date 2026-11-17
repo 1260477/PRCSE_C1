@@ -18,6 +18,12 @@ LOG_FILES=()
 # Ficheiro temporário com os eventos já preparados (criado em read_logs)
 EVENTS_FILE=""
 
+# Resultados das deteções, uma linha CSV por elemento (preenchidos pelas detect_*,
+# lidos por print_report). Vírgula como separador: não aparece em timestamps nem
+# em usernames Linux, e a lista de usernames (com espaços) fica num só campo.
+# BRUTE_RESULTS: ip,first_attempt,last_attempt,failures,top_usernames
+BRUTE_RESULTS=()
+
 # Mostra as instruções de utilização do script
 usage() {
     cat <<'EOF'
@@ -187,7 +193,10 @@ detect_brute_force() {
     # sort: agrupa por IP (-k1,1 = só a 1.ª coluna). -s (estável) mantém a ordem
     #   original dentro de cada IP, que já é cronológica (EVENTS_FILE está ordenado).
     # 2.º awk: janela deslizante, um IP de cada vez.
-    awk '/Failed password/ {
+    # mapfile: guarda cada linha do output do pipeline num elemento de BRUTE_RESULTS.
+    #   Usa-se "< <(...)" e não "pipeline | mapfile": num pipe o mapfile correria
+    #   num subshell e o array global ficaria vazio.
+    mapfile -t BRUTE_RESULTS < <(awk '/Failed password/ {
         for (i = 1; i <= NF; i++) {
             if ($i == "from") {
                 user = $(i-1)
@@ -211,7 +220,7 @@ detect_brute_force() {
 
         # Devolve os "top" usernames mais tentados do IP atual, no formato "user(N) ..."
         # Procura o máximo, guarda-o e remove-o do array; repete "top" vezes
-        function top_users(top,    list, j, u, best) {
+        function top_users(top, list, j, u, best) {
             list = ""
             for (j = 1; j <= top; j++) {
                 best = ""
@@ -220,16 +229,18 @@ detect_brute_force() {
                         best = u
                 if (best == "")
                     break                # já não há mais usernames
-                list = list " " best "(" users[best] ")"
+                if (list != "")
+                    list = list " "      # espaço só entre usernames, não no início
+                list = list best "(" users[best] ")"
                 delete users[best]
             }
             return list
         }
 
-        # Fecha o IP anterior: se foi detetado, reporta-o
+        # Fecha o IP anterior: se foi detetado, imprime-o numa linha CSV
         function report() {
             if (detected)
-                print prev_ip, first_ts, last_ts, k top_users(3)
+                print prev_ip "," first_ts "," last_ts "," k "," top_users(3)
         }
 
         {
@@ -258,7 +269,27 @@ detect_brute_force() {
 
         # O último IP não tem nenhum IP a seguir que o feche
         END { report() }
-    '
+    ')
+}
+
+# Imprime o relatório a partir dos arrays de resultados das detect_*
+print_report() {
+    local line ip first last failures users
+
+    echo "=== Brute force (>= $BRUTE_THRESHOLD failed passwords in $BRUTE_WINDOW min) ==="
+    if [[ "${#BRUTE_RESULTS[@]}" -eq 0 ]]; then
+        echo "No brute force attacks detected."
+    else
+        for line in "${BRUTE_RESULTS[@]}"; do
+            # IFS=, só para este read: parte a linha CSV nos 5 campos
+            IFS=, read -r ip first last failures users <<< "$line"
+            echo "IP: $ip"
+            echo "  First attempt: $first"
+            echo "  Last attempt:  $last"
+            echo "  Failures:      $failures"
+            echo "  Top usernames: $users"
+        done
+    fi
 }
 
 main() {
@@ -266,6 +297,7 @@ main() {
     check_pre_reqs
     read_logs
     detect_brute_force
+    print_report
 
     echo "TODO: implement analyze_auth.sh" >&2
     exit "$EXIT_FATAL"

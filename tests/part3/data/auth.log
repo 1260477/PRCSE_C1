@@ -1,0 +1,666 @@
+2026-10-30T00:17:01.765742+00:00 srv-files01 CRON[26348]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T00:17:02.581748+00:00 srv-files01 CRON[26348]: pam_unix(cron:session): session closed for user root
+2026-10-30T01:12:06.000119+00:00 srv-files01 sshd[28041]: Invalid user tomcat from 203.0.113.228 port 48358
+2026-10-30T01:12:06.115390+00:00 srv-files01 sshd[28041]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T01:12:06.116061+00:00 srv-files01 sshd[28041]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.228
+2026-10-30T01:12:08.442198+00:00 srv-files01 sshd[28041]: Failed password for invalid user tomcat from 203.0.113.228 port 48358 ssh2
+2026-10-30T01:12:09.412647+00:00 srv-files01 sshd[28041]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T01:12:09.413659+00:00 srv-files01 sshd[28041]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.228
+2026-10-30T01:12:11.533877+00:00 srv-files01 sshd[28041]: Failed password for invalid user tomcat from 203.0.113.228 port 48358 ssh2
+2026-10-30T01:12:12.711588+00:00 srv-files01 sshd[28041]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T01:12:12.714145+00:00 srv-files01 sshd[28041]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.228
+2026-10-30T01:12:14.265007+00:00 srv-files01 sshd[28041]: Failed password for invalid user tomcat from 203.0.113.228 port 48358 ssh2
+2026-10-30T01:12:14.611111+00:00 srv-files01 sshd[28041]: Connection closed by invalid user tomcat 203.0.113.228 port 48358 [preauth]
+2026-10-30T01:13:22.000724+00:00 srv-files01 sshd[29650]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.223  user=root
+2026-10-30T01:13:24.147485+00:00 srv-files01 sshd[29650]: Failed password for root from 198.51.100.223 port 62567 ssh2
+2026-10-30T01:13:24.498279+00:00 srv-files01 sshd[29650]: Connection closed by authenticating user root 198.51.100.223 port 62567 [preauth]
+2026-10-30T01:17:01.702253+00:00 srv-files01 CRON[26360]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T01:17:02.187141+00:00 srv-files01 CRON[26360]: pam_unix(cron:session): session closed for user root
+2026-10-30T01:18:32.000420+00:00 srv-files01 sshd[27161]: Connection closed by 192.0.2.112 port 37437 [preauth]
+2026-10-30T01:23:37.000154+00:00 srv-files01 sshd[29356]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.130  user=root
+2026-10-30T01:23:39.039457+00:00 srv-files01 sshd[29356]: Failed password for root from 198.51.100.130 port 46010 ssh2
+2026-10-30T01:23:39.992051+00:00 srv-files01 sshd[29356]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.130  user=root
+2026-10-30T01:23:41.936654+00:00 srv-files01 sshd[29356]: Failed password for root from 198.51.100.130 port 46010 ssh2
+2026-10-30T01:23:42.001189+00:00 srv-files01 sshd[29356]: Connection closed by authenticating user root 198.51.100.130 port 46010 [preauth]
+2026-10-30T01:30:19.000530+00:00 srv-files01 sshd[27111]: Accepted publickey for root from 10.20.5.5 port 35483 ssh2: ED25519 SHA256:eQawBRg4ku+bLG4ga0yQNEgJHxKBN/ksZUJZ1UHrHFa
+2026-10-30T01:30:19.007389+00:00 srv-files01 sshd[27111]: pam_unix(sshd:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T01:30:19.030839+00:00 srv-files01 systemd-logind[812]: New session 165 of user root.
+2026-10-30T01:36:05.000181+00:00 srv-files01 sshd[27111]: Received disconnect from 10.20.5.5 port 35483:11: disconnected by user
+2026-10-30T01:36:05.004884+00:00 srv-files01 sshd[27111]: Disconnected from user root 10.20.5.5 port 35483
+2026-10-30T01:36:05.024866+00:00 srv-files01 sshd[27111]: pam_unix(sshd:session): session closed for user root
+2026-10-30T01:36:05.058941+00:00 srv-files01 systemd-logind[812]: Session 165 logged out. Waiting for processes to exit.
+2026-10-30T01:36:05.192279+00:00 srv-files01 systemd-logind[812]: Removed session 165.
+2026-10-30T01:38:10.000224+00:00 srv-files01 sshd[30809]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.97  user=root
+2026-10-30T01:38:11.856734+00:00 srv-files01 sshd[30809]: Failed password for root from 203.0.113.97 port 64402 ssh2
+2026-10-30T01:38:12.732422+00:00 srv-files01 sshd[30809]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.97  user=root
+2026-10-30T01:38:14.503036+00:00 srv-files01 sshd[30809]: Failed password for root from 203.0.113.97 port 64402 ssh2
+2026-10-30T01:38:14.787351+00:00 srv-files01 sshd[30809]: Connection closed by authenticating user root 203.0.113.97 port 64402 [preauth]
+2026-10-30T02:05:34.000832+00:00 srv-files01 sshd[27849]: Invalid user elastic from 198.51.100.41 port 64479
+2026-10-30T02:05:34.329385+00:00 srv-files01 sshd[27849]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T02:05:34.332542+00:00 srv-files01 sshd[27849]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.41
+2026-10-30T02:05:36.817144+00:00 srv-files01 sshd[27849]: Failed password for invalid user elastic from 198.51.100.41 port 64479 ssh2
+2026-10-30T02:05:37.742194+00:00 srv-files01 sshd[27849]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T02:05:37.744394+00:00 srv-files01 sshd[27849]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.41
+2026-10-30T02:05:39.253106+00:00 srv-files01 sshd[27849]: Failed password for invalid user elastic from 198.51.100.41 port 64479 ssh2
+2026-10-30T02:05:39.423427+00:00 srv-files01 sshd[27849]: Connection closed by invalid user elastic 198.51.100.41 port 64479 [preauth]
+2026-10-30T02:17:01.692694+00:00 srv-files01 CRON[26365]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T02:17:02.171933+00:00 srv-files01 CRON[26365]: pam_unix(cron:session): session closed for user root
+2026-10-30T03:01:57.000181+00:00 srv-files01 sshd[27909]: Invalid user guest from 203.0.113.220 port 41064
+2026-10-30T03:01:57.292765+00:00 srv-files01 sshd[27909]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:01:57.294142+00:00 srv-files01 sshd[27909]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.220
+2026-10-30T03:01:59.313652+00:00 srv-files01 sshd[27909]: Failed password for invalid user guest from 203.0.113.220 port 41064 ssh2
+2026-10-30T03:01:59.846244+00:00 srv-files01 sshd[27909]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:01:59.848674+00:00 srv-files01 sshd[27909]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.220
+2026-10-30T03:02:01.704602+00:00 srv-files01 sshd[27909]: Failed password for invalid user guest from 203.0.113.220 port 41064 ssh2
+2026-10-30T03:02:02.236931+00:00 srv-files01 sshd[27909]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:02:02.237475+00:00 srv-files01 sshd[27909]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.220
+2026-10-30T03:02:03.900041+00:00 srv-files01 sshd[27909]: Failed password for invalid user guest from 203.0.113.220 port 41064 ssh2
+2026-10-30T03:02:04.044328+00:00 srv-files01 sshd[27909]: Connection closed by invalid user guest 203.0.113.220 port 41064 [preauth]
+2026-10-30T03:02:44.044111+00:00 srv-files01 sshd[27915]: Invalid user hadoop from 203.0.113.220 port 54585
+2026-10-30T03:02:44.282099+00:00 srv-files01 sshd[27915]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:02:44.283097+00:00 srv-files01 sshd[27915]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.220
+2026-10-30T03:02:46.523592+00:00 srv-files01 sshd[27915]: Failed password for invalid user hadoop from 203.0.113.220 port 54585 ssh2
+2026-10-30T03:02:46.673868+00:00 srv-files01 sshd[27915]: Connection closed by invalid user hadoop 203.0.113.220 port 54585 [preauth]
+2026-10-30T03:05:55.000425+00:00 srv-files01 sshd[27652]: Invalid user www-data from 203.0.113.178 port 39292
+2026-10-30T03:05:55.325803+00:00 srv-files01 sshd[27652]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:05:55.326833+00:00 srv-files01 sshd[27652]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.178
+2026-10-30T03:05:57.778010+00:00 srv-files01 sshd[27652]: Failed password for invalid user www-data from 203.0.113.178 port 39292 ssh2
+2026-10-30T03:05:58.888725+00:00 srv-files01 sshd[27652]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:05:58.890370+00:00 srv-files01 sshd[27652]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.178
+2026-10-30T03:06:00.520804+00:00 srv-files01 sshd[27652]: Failed password for invalid user www-data from 203.0.113.178 port 39292 ssh2
+2026-10-30T03:06:00.944725+00:00 srv-files01 sshd[27652]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:06:00.945093+00:00 srv-files01 sshd[27652]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.178
+2026-10-30T03:06:03.389660+00:00 srv-files01 sshd[27652]: Failed password for invalid user www-data from 203.0.113.178 port 39292 ssh2
+2026-10-30T03:06:03.734192+00:00 srv-files01 sshd[27652]: Connection closed by invalid user www-data 203.0.113.178 port 39292 [preauth]
+2026-10-30T03:12:30.000690+00:00 srv-files01 sshd[35626]: Accepted password for sysupdate from 192.0.2.80 port 35078 ssh2
+2026-10-30T03:12:30.004346+00:00 srv-files01 sshd[35626]: pam_unix(sshd:session): session opened for user sysupdate(uid=0) by (uid=0)
+2026-10-30T03:12:30.035998+00:00 srv-files01 systemd-logind[812]: New session 171 of user sysupdate.
+2026-10-30T03:12:30.686306+00:00 srv-files01 sshd[35627]: subsystem request for sftp by user sysupdate
+2026-10-30T03:17:01.478688+00:00 srv-files01 CRON[26394]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T03:17:02.218988+00:00 srv-files01 CRON[26394]: pam_unix(cron:session): session closed for user root
+2026-10-30T03:19:22.000403+00:00 srv-files01 sshd[35626]: Received disconnect from 192.0.2.80 port 35078:11: disconnected by user
+2026-10-30T03:19:22.004694+00:00 srv-files01 sshd[35626]: Disconnected from user sysupdate 192.0.2.80 port 35078
+2026-10-30T03:19:22.025499+00:00 srv-files01 sshd[35626]: pam_unix(sshd:session): session closed for user sysupdate
+2026-10-30T03:19:22.047453+00:00 srv-files01 systemd-logind[812]: Session 171 logged out. Waiting for processes to exit.
+2026-10-30T03:19:22.169584+00:00 srv-files01 systemd-logind[812]: Removed session 171.
+2026-10-30T03:40:34.000477+00:00 srv-files01 sshd[27506]: Invalid user ansible from 198.51.100.169 port 51135
+2026-10-30T03:40:34.139074+00:00 srv-files01 sshd[27506]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:40:34.140699+00:00 srv-files01 sshd[27506]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.169
+2026-10-30T03:40:35.789118+00:00 srv-files01 sshd[27506]: Failed password for invalid user ansible from 198.51.100.169 port 51135 ssh2
+2026-10-30T03:40:36.930832+00:00 srv-files01 sshd[27506]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:40:36.933303+00:00 srv-files01 sshd[27506]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.169
+2026-10-30T03:40:39.282868+00:00 srv-files01 sshd[27506]: Failed password for invalid user ansible from 198.51.100.169 port 51135 ssh2
+2026-10-30T03:40:39.426681+00:00 srv-files01 sshd[27506]: Connection closed by invalid user ansible 198.51.100.169 port 51135 [preauth]
+2026-10-30T03:41:14.426108+00:00 srv-files01 sshd[27514]: Invalid user user1 from 198.51.100.169 port 32882
+2026-10-30T03:41:14.551415+00:00 srv-files01 sshd[27514]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T03:41:14.554157+00:00 srv-files01 sshd[27514]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.169
+2026-10-30T03:41:16.632474+00:00 srv-files01 sshd[27514]: Failed password for invalid user user1 from 198.51.100.169 port 32882 ssh2
+2026-10-30T03:41:17.020244+00:00 srv-files01 sshd[27514]: Connection closed by invalid user user1 198.51.100.169 port 32882 [preauth]
+2026-10-30T04:14:34.000080+00:00 srv-files01 sshd[27124]: Connection closed by 192.0.2.97 port 42926 [preauth]
+2026-10-30T04:17:01.813160+00:00 srv-files01 CRON[26397]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T04:17:02.398358+00:00 srv-files01 CRON[26397]: pam_unix(cron:session): session closed for user root
+2026-10-30T04:33:47.000669+00:00 srv-files01 sshd[29443]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.157  user=root
+2026-10-30T04:33:48.892774+00:00 srv-files01 sshd[29443]: Failed password for root from 198.51.100.157 port 61711 ssh2
+2026-10-30T04:33:49.499257+00:00 srv-files01 sshd[29443]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.157  user=root
+2026-10-30T04:33:51.343881+00:00 srv-files01 sshd[29443]: Failed password for root from 198.51.100.157 port 61711 ssh2
+2026-10-30T04:33:52.378898+00:00 srv-files01 sshd[29443]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.157  user=root
+2026-10-30T04:33:54.328420+00:00 srv-files01 sshd[29443]: Failed password for root from 198.51.100.157 port 61711 ssh2
+2026-10-30T04:33:54.447543+00:00 srv-files01 sshd[29443]: Connection closed by authenticating user root 198.51.100.157 port 61711 [preauth]
+2026-10-30T04:37:43.000767+00:00 srv-files01 sshd[27951]: Invalid user guest from 192.0.2.161 port 48788
+2026-10-30T04:37:43.334804+00:00 srv-files01 sshd[27951]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T04:37:43.336271+00:00 srv-files01 sshd[27951]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.161
+2026-10-30T04:37:44.995581+00:00 srv-files01 sshd[27951]: Failed password for invalid user guest from 192.0.2.161 port 48788 ssh2
+2026-10-30T04:37:45.282695+00:00 srv-files01 sshd[27951]: Connection closed by invalid user guest 192.0.2.161 port 48788 [preauth]
+2026-10-30T04:38:52.000826+00:00 srv-files01 sshd[27180]: Received disconnect from 198.51.100.139 port 57857:11: Bye Bye [preauth]
+2026-10-30T04:38:52.003759+00:00 srv-files01 sshd[27180]: Disconnected from 198.51.100.139 port 38843 [preauth]
+2026-10-30T05:12:58.000496+00:00 srv-files01 sshd[30213]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.170  user=root
+2026-10-30T05:13:00.412590+00:00 srv-files01 sshd[30213]: Failed password for root from 203.0.113.170 port 56075 ssh2
+2026-10-30T05:13:00.761429+00:00 srv-files01 sshd[30213]: Connection closed by authenticating user root 203.0.113.170 port 56075 [preauth]
+2026-10-30T05:17:01.854999+00:00 srv-files01 CRON[26401]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T05:17:02.419361+00:00 srv-files01 CRON[26401]: pam_unix(cron:session): session closed for user root
+2026-10-30T05:55:45.000609+00:00 srv-files01 sshd[30775]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.77  user=root
+2026-10-30T05:55:47.177795+00:00 srv-files01 sshd[30775]: Failed password for root from 203.0.113.77 port 62346 ssh2
+2026-10-30T05:55:47.761284+00:00 srv-files01 sshd[30775]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.77  user=root
+2026-10-30T05:55:50.234549+00:00 srv-files01 sshd[30775]: Failed password for root from 203.0.113.77 port 62346 ssh2
+2026-10-30T05:55:50.289138+00:00 srv-files01 sshd[30775]: Connection closed by authenticating user root 203.0.113.77 port 62346 [preauth]
+2026-10-30T06:08:50.000836+00:00 srv-files01 sshd[29383]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.151  user=root
+2026-10-30T06:08:52.063015+00:00 srv-files01 sshd[29383]: Failed password for root from 198.51.100.151 port 56968 ssh2
+2026-10-30T06:08:52.251249+00:00 srv-files01 sshd[29383]: Connection closed by authenticating user root 198.51.100.151 port 56968 [preauth]
+2026-10-30T06:17:01.811571+00:00 srv-files01 CRON[26424]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T06:17:02.795802+00:00 srv-files01 CRON[26424]: pam_unix(cron:session): session closed for user root
+2026-10-30T06:24:26.000781+00:00 srv-files01 sshd[27972]: Received disconnect from 203.0.113.61 port 60730:11: Bye Bye [preauth]
+2026-10-30T06:24:26.001647+00:00 srv-files01 sshd[27972]: Disconnected from 203.0.113.61 port 44887 [preauth]
+2026-10-30T06:25:01.125846+00:00 srv-files01 CRON[26794]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T06:26:16.000696+00:00 srv-files01 CRON[26794]: pam_unix(cron:session): session closed for user root
+2026-10-30T07:12:43.000767+00:00 srv-files01 sshd[29299]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.119  user=root
+2026-10-30T07:12:45.503971+00:00 srv-files01 sshd[29299]: Failed password for root from 198.51.100.119 port 38071 ssh2
+2026-10-30T07:12:45.682652+00:00 srv-files01 sshd[29299]: Connection closed by authenticating user root 198.51.100.119 port 38071 [preauth]
+2026-10-30T07:17:01.304799+00:00 srv-files01 CRON[26461]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T07:17:02.308127+00:00 srv-files01 CRON[26461]: pam_unix(cron:session): session closed for user root
+2026-10-30T07:25:11.000289+00:00 srv-files01 sshd[27310]: Invalid user admin from 203.0.113.99 port 63378
+2026-10-30T07:25:11.115698+00:00 srv-files01 sshd[27310]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T07:25:11.118865+00:00 srv-files01 sshd[27310]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.99
+2026-10-30T07:25:12.823304+00:00 srv-files01 sshd[27310]: Failed password for invalid user admin from 203.0.113.99 port 63378 ssh2
+2026-10-30T07:25:13.054320+00:00 srv-files01 sshd[27310]: Connection closed by invalid user admin 203.0.113.99 port 63378 [preauth]
+2026-10-30T07:25:30.054657+00:00 srv-files01 sshd[27327]: Invalid user minecraft from 203.0.113.99 port 52708
+2026-10-30T07:25:30.334113+00:00 srv-files01 sshd[27327]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T07:25:30.337041+00:00 srv-files01 sshd[27327]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.99
+2026-10-30T07:25:32.066537+00:00 srv-files01 sshd[27327]: Failed password for invalid user minecraft from 203.0.113.99 port 52708 ssh2
+2026-10-30T07:25:32.665709+00:00 srv-files01 sshd[27327]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T07:25:32.667697+00:00 srv-files01 sshd[27327]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.99
+2026-10-30T07:25:34.344671+00:00 srv-files01 sshd[27327]: Failed password for invalid user minecraft from 203.0.113.99 port 52708 ssh2
+2026-10-30T07:25:35.425494+00:00 srv-files01 sshd[27327]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T07:25:35.426595+00:00 srv-files01 sshd[27327]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.99
+2026-10-30T07:25:37.059836+00:00 srv-files01 sshd[27327]: Failed password for invalid user minecraft from 203.0.113.99 port 52708 ssh2
+2026-10-30T07:25:37.440749+00:00 srv-files01 sshd[27327]: Connection closed by invalid user minecraft 203.0.113.99 port 52708 [preauth]
+2026-10-30T07:26:14.000228+00:00 srv-files01 sshd[30349]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.222  user=root
+2026-10-30T07:26:16.023823+00:00 srv-files01 sshd[30349]: Failed password for root from 203.0.113.222 port 39411 ssh2
+2026-10-30T07:26:16.293568+00:00 srv-files01 sshd[30349]: Connection closed by authenticating user root 203.0.113.222 port 39411 [preauth]
+2026-10-30T07:54:59.000818+00:00 srv-files01 sshd[28324]: banner exchange: Connection from 203.0.113.168 port 37936: invalid format
+2026-10-30T08:03:01.000643+00:00 srv-files01 sshd[28421]: Invalid user elastic from 192.0.2.104 port 41451
+2026-10-30T08:03:01.311301+00:00 srv-files01 sshd[28421]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T08:03:01.312930+00:00 srv-files01 sshd[28421]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.104
+2026-10-30T08:03:03.733400+00:00 srv-files01 sshd[28421]: Failed password for invalid user elastic from 192.0.2.104 port 41451 ssh2
+2026-10-30T08:03:04.042473+00:00 srv-files01 sshd[28421]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T08:03:04.045626+00:00 srv-files01 sshd[28421]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.104
+2026-10-30T08:03:06.457866+00:00 srv-files01 sshd[28421]: Failed password for invalid user elastic from 192.0.2.104 port 41451 ssh2
+2026-10-30T08:03:06.837843+00:00 srv-files01 sshd[28421]: Connection closed by invalid user elastic 192.0.2.104 port 41451 [preauth]
+2026-10-30T08:03:35.837829+00:00 srv-files01 sshd[28434]: Invalid user hadoop from 192.0.2.104 port 47627
+2026-10-30T08:03:36.142559+00:00 srv-files01 sshd[28434]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T08:03:36.143679+00:00 srv-files01 sshd[28434]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.104
+2026-10-30T08:03:38.043231+00:00 srv-files01 sshd[28434]: Failed password for invalid user hadoop from 192.0.2.104 port 47627 ssh2
+2026-10-30T08:03:38.126131+00:00 srv-files01 sshd[28434]: Connection closed by invalid user hadoop 192.0.2.104 port 47627 [preauth]
+2026-10-30T08:17:01.704313+00:00 srv-files01 CRON[26474]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T08:17:02.167587+00:00 srv-files01 CRON[26474]: pam_unix(cron:session): session closed for user root
+2026-10-30T08:33:48.000659+00:00 srv-files01 sshd[26939]: Accepted password for lcarvalho from 10.20.1.23 port 44668 ssh2
+2026-10-30T08:33:48.006044+00:00 srv-files01 sshd[26939]: pam_unix(sshd:session): session opened for user lcarvalho(uid=1014) by (uid=0)
+2026-10-30T08:33:48.044018+00:00 srv-files01 systemd-logind[812]: New session 161 of user lcarvalho.
+2026-10-30T08:33:48.732960+00:00 srv-files01 sshd[26940]: subsystem request for sftp by user lcarvalho
+2026-10-30T08:38:14.000966+00:00 srv-files01 sshd[26911]: Accepted password for isimoes from 10.20.2.10 port 50572 ssh2
+2026-10-30T08:38:14.014398+00:00 srv-files01 sshd[26911]: pam_unix(sshd:session): session opened for user isimoes(uid=1007) by (uid=0)
+2026-10-30T08:38:14.044224+00:00 srv-files01 systemd-logind[812]: New session 160 of user isimoes.
+2026-10-30T08:38:14.823619+00:00 srv-files01 sshd[26912]: subsystem request for sftp by user isimoes
+2026-10-30T08:56:04.000492+00:00 srv-files01 sshd[26853]: Accepted publickey for jpereira from 10.20.5.11 port 32873 ssh2: ED25519 SHA256:RAPBqGsV/EUpOo4r3ftJSEWBJDEQVunUaMWmH6zotfI
+2026-10-30T08:56:04.010942+00:00 srv-files01 sshd[26853]: pam_unix(sshd:session): session opened for user jpereira(uid=1003) by (uid=0)
+2026-10-30T08:56:04.045572+00:00 srv-files01 systemd-logind[812]: New session 157 of user jpereira.
+2026-10-30T08:59:47.000442+00:00 srv-files01 sshd[26829]: Accepted password for asilva from 10.20.1.21 port 54356 ssh2
+2026-10-30T08:59:47.019833+00:00 srv-files01 sshd[26829]: pam_unix(sshd:session): session opened for user asilva(uid=1001) by (uid=0)
+2026-10-30T08:59:47.051391+00:00 srv-files01 systemd-logind[812]: New session 155 of user asilva.
+2026-10-30T08:59:47.537307+00:00 srv-files01 sshd[26830]: subsystem request for sftp by user asilva
+2026-10-30T09:09:33.000940+00:00 srv-files01 sshd[26838]: Accepted password for mcosta from 10.20.1.12 port 41919 ssh2
+2026-10-30T09:09:33.019842+00:00 srv-files01 sshd[26838]: pam_unix(sshd:session): session opened for user mcosta(uid=1002) by (uid=0)
+2026-10-30T09:09:33.033485+00:00 srv-files01 systemd-logind[812]: New session 156 of user mcosta.
+2026-10-30T09:09:33.225992+00:00 srv-files01 sshd[26839]: subsystem request for sftp by user mcosta
+2026-10-30T09:17:01.313826+00:00 srv-files01 CRON[26497]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T09:17:02.024734+00:00 srv-files01 CRON[26497]: pam_unix(cron:session): session closed for user root
+2026-10-30T09:18:38.000868+00:00 srv-files01 sshd[28688]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.134  user=root
+2026-10-30T09:18:39.824409+00:00 srv-files01 sshd[28688]: Failed password for root from 192.0.2.134 port 39767 ssh2
+2026-10-30T09:18:40.797366+00:00 srv-files01 sshd[28688]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.134  user=root
+2026-10-30T09:18:42.441684+00:00 srv-files01 sshd[28688]: Failed password for root from 192.0.2.134 port 39767 ssh2
+2026-10-30T09:18:42.949817+00:00 srv-files01 sshd[28688]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.134  user=root
+2026-10-30T09:18:44.619455+00:00 srv-files01 sshd[28688]: Failed password for root from 192.0.2.134 port 39767 ssh2
+2026-10-30T09:18:44.674119+00:00 srv-files01 sshd[28688]: Connection closed by authenticating user root 192.0.2.134 port 39767 [preauth]
+2026-10-30T09:18:46.000908+00:00 srv-files01 sshd[27074]: Accepted publickey for lcastro from 10.20.4.40 port 32957 ssh2: ED25519 SHA256:GmOg0aE960k6aoca5Vb5Kzbw5Usm/5j655EWgiZI9Pd
+2026-10-30T09:18:46.014103+00:00 srv-files01 sshd[27074]: pam_unix(sshd:session): session opened for user lcastro(uid=1032) by (uid=0)
+2026-10-30T09:18:46.021968+00:00 srv-files01 systemd-logind[812]: New session 164 of user lcastro.
+2026-10-30T09:39:00.000825+00:00 srv-files01 sshd[29984]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.92  user=root
+2026-10-30T09:39:02.253184+00:00 srv-files01 sshd[29984]: Failed password for root from 198.51.100.92 port 60078 ssh2
+2026-10-30T09:39:02.403836+00:00 srv-files01 sshd[29984]: Connection closed by authenticating user root 198.51.100.92 port 60078 [preauth]
+2026-10-30T09:42:42.000702+00:00 srv-files01 sshd[26878]: Accepted publickey for jgoncalves from 10.20.4.30 port 41159 ssh2: ED25519 SHA256:ONoP0ET59gk+oTQ3MiV+pIkubhRxxk1HSXVUIzpXyBS
+2026-10-30T09:42:42.009114+00:00 srv-files01 sshd[26878]: pam_unix(sshd:session): session opened for user jgoncalves(uid=1006) by (uid=0)
+2026-10-30T09:42:42.046049+00:00 srv-files01 systemd-logind[812]: New session 158 of user jgoncalves.
+2026-10-30T09:52:16.000105+00:00 srv-files01 sshd[28005]: Invalid user steam from 192.0.2.124 port 35728
+2026-10-30T09:52:16.352484+00:00 srv-files01 sshd[28005]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T09:52:16.353639+00:00 srv-files01 sshd[28005]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.124
+2026-10-30T09:52:18.739912+00:00 srv-files01 sshd[28005]: Failed password for invalid user steam from 192.0.2.124 port 35728 ssh2
+2026-10-30T09:52:19.397710+00:00 srv-files01 sshd[28005]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T09:52:19.398962+00:00 srv-files01 sshd[28005]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.124
+2026-10-30T09:52:21.533678+00:00 srv-files01 sshd[28005]: Failed password for invalid user steam from 192.0.2.124 port 35728 ssh2
+2026-10-30T09:52:22.712729+00:00 srv-files01 sshd[28005]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T09:52:22.713890+00:00 srv-files01 sshd[28005]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.124
+2026-10-30T09:52:24.221936+00:00 srv-files01 sshd[28005]: Failed password for invalid user steam from 192.0.2.124 port 35728 ssh2
+2026-10-30T09:52:24.466635+00:00 srv-files01 sshd[28005]: Connection closed by invalid user steam 192.0.2.124 port 35728 [preauth]
+2026-10-30T09:52:58.000832+00:00 srv-files01 sshd[27051]: Accepted password for cmendes from 10.20.6.11 port 56594 ssh2
+2026-10-30T09:52:58.014950+00:00 srv-files01 sshd[27051]: pam_unix(sshd:session): session opened for user cmendes(uid=1019) by (uid=0)
+2026-10-30T09:52:58.047855+00:00 srv-files01 systemd-logind[812]: New session 163 of user cmendes.
+2026-10-30T09:52:58.654250+00:00 srv-files01 sshd[27052]: subsystem request for sftp by user cmendes
+2026-10-30T09:53:14.000736+00:00 srv-files01 sshd[27982]: Invalid user oracle from 203.0.113.198 port 58603
+2026-10-30T09:53:14.338747+00:00 srv-files01 sshd[27982]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T09:53:14.339340+00:00 srv-files01 sshd[27982]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.198
+2026-10-30T09:53:15.995473+00:00 srv-files01 sshd[27982]: Failed password for invalid user oracle from 203.0.113.198 port 58603 ssh2
+2026-10-30T09:53:16.354901+00:00 srv-files01 sshd[27982]: Connection closed by invalid user oracle 203.0.113.198 port 58603 [preauth]
+2026-10-30T09:53:48.354036+00:00 srv-files01 sshd[27999]: Invalid user oracle from 203.0.113.198 port 45481
+2026-10-30T09:53:48.526928+00:00 srv-files01 sshd[27999]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T09:53:48.527882+00:00 srv-files01 sshd[27999]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.198
+2026-10-30T09:53:50.898095+00:00 srv-files01 sshd[27999]: Failed password for invalid user oracle from 203.0.113.198 port 45481 ssh2
+2026-10-30T09:53:51.814242+00:00 srv-files01 sshd[27999]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T09:53:51.817918+00:00 srv-files01 sshd[27999]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.198
+2026-10-30T09:53:53.419081+00:00 srv-files01 sshd[27999]: Failed password for invalid user oracle from 203.0.113.198 port 45481 ssh2
+2026-10-30T09:53:53.575112+00:00 srv-files01 sshd[27999]: Connection closed by invalid user oracle 203.0.113.198 port 45481 [preauth]
+2026-10-30T09:58:19.000034+00:00 srv-files01 sshd[26958]: Accepted publickey for hferreira from 10.20.5.13 port 37203 ssh2: ED25519 SHA256:RilITdoR0BO3Qtbvig8n2VCjCb4ViXrRnVMfACtI1p2
+2026-10-30T09:58:19.020809+00:00 srv-files01 sshd[26958]: pam_unix(sshd:session): session opened for user hferreira(uid=1016) by (uid=0)
+2026-10-30T09:58:19.035547+00:00 srv-files01 systemd-logind[812]: New session 162 of user hferreira.
+2026-10-30T10:17:01.894371+00:00 srv-files01 CRON[26515]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T10:17:02.787759+00:00 srv-files01 CRON[26515]: pam_unix(cron:session): session closed for user root
+2026-10-30T10:27:31.000620+00:00 srv-files01 sshd[27661]: Invalid user test from 203.0.113.219 port 39469
+2026-10-30T10:27:31.174885+00:00 srv-files01 sshd[27661]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:27:31.176836+00:00 srv-files01 sshd[27661]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.219
+2026-10-30T10:27:32.699506+00:00 srv-files01 sshd[27661]: Failed password for invalid user test from 203.0.113.219 port 39469 ssh2
+2026-10-30T10:27:33.083491+00:00 srv-files01 sshd[27661]: Connection closed by invalid user test 203.0.113.219 port 39469 [preauth]
+2026-10-30T10:27:49.083922+00:00 srv-files01 sshd[27680]: Invalid user www-data from 203.0.113.219 port 58901
+2026-10-30T10:27:49.413946+00:00 srv-files01 sshd[27680]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:27:49.415739+00:00 srv-files01 sshd[27680]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.219
+2026-10-30T10:27:50.934360+00:00 srv-files01 sshd[27680]: Failed password for invalid user www-data from 203.0.113.219 port 58901 ssh2
+2026-10-30T10:27:51.900975+00:00 srv-files01 sshd[27680]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:27:51.902101+00:00 srv-files01 sshd[27680]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.219
+2026-10-30T10:27:53.898694+00:00 srv-files01 sshd[27680]: Failed password for invalid user www-data from 203.0.113.219 port 58901 ssh2
+2026-10-30T10:27:54.092394+00:00 srv-files01 sshd[27680]: Connection closed by invalid user www-data 203.0.113.219 port 58901 [preauth]
+2026-10-30T10:35:10.000068+00:00 srv-files01 sshd[28931]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.202  user=root
+2026-10-30T10:35:12.248398+00:00 srv-files01 sshd[28931]: Failed password for root from 192.0.2.202 port 46977 ssh2
+2026-10-30T10:35:13.320217+00:00 srv-files01 sshd[28931]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.202  user=root
+2026-10-30T10:35:15.553894+00:00 srv-files01 sshd[28931]: Failed password for root from 192.0.2.202 port 46977 ssh2
+2026-10-30T10:35:15.649022+00:00 srv-files01 sshd[28931]: Connection closed by authenticating user root 192.0.2.202 port 46977 [preauth]
+2026-10-30T10:43:00.000813+00:00 srv-files01 sshd[26939]: Received disconnect from 10.20.1.23 port 44668:11: disconnected by user
+2026-10-30T10:43:00.003443+00:00 srv-files01 sshd[26939]: Disconnected from user lcarvalho 10.20.1.23 port 44668
+2026-10-30T10:43:00.027569+00:00 srv-files01 sshd[26939]: pam_unix(sshd:session): session closed for user lcarvalho
+2026-10-30T10:43:00.076024+00:00 srv-files01 systemd-logind[812]: Session 161 logged out. Waiting for processes to exit.
+2026-10-30T10:43:00.111975+00:00 srv-files01 systemd-logind[812]: Removed session 161.
+2026-10-30T10:54:57.000967+00:00 srv-files01 sshd[28296]: Invalid user jenkins from 192.0.2.44 port 64454
+2026-10-30T10:54:57.366897+00:00 srv-files01 sshd[28296]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:54:57.367419+00:00 srv-files01 sshd[28296]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.44
+2026-10-30T10:54:59.937700+00:00 srv-files01 sshd[28296]: Failed password for invalid user jenkins from 192.0.2.44 port 64454 ssh2
+2026-10-30T10:55:00.390508+00:00 srv-files01 sshd[28296]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:55:00.393529+00:00 srv-files01 sshd[28296]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.44
+2026-10-30T10:55:02.632199+00:00 srv-files01 sshd[28296]: Failed password for invalid user jenkins from 192.0.2.44 port 64454 ssh2
+2026-10-30T10:55:02.934273+00:00 srv-files01 sshd[28296]: Connection closed by invalid user jenkins 192.0.2.44 port 64454 [preauth]
+2026-10-30T10:55:22.934881+00:00 srv-files01 sshd[28309]: Invalid user elastic from 192.0.2.44 port 46323
+2026-10-30T10:55:23.280098+00:00 srv-files01 sshd[28309]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:55:23.282981+00:00 srv-files01 sshd[28309]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.44
+2026-10-30T10:55:25.588392+00:00 srv-files01 sshd[28309]: Failed password for invalid user elastic from 192.0.2.44 port 46323 ssh2
+2026-10-30T10:55:25.950662+00:00 srv-files01 sshd[28309]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:55:25.951739+00:00 srv-files01 sshd[28309]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.44
+2026-10-30T10:55:28.104584+00:00 srv-files01 sshd[28309]: Failed password for invalid user elastic from 192.0.2.44 port 46323 ssh2
+2026-10-30T10:55:28.468889+00:00 srv-files01 sshd[28309]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:55:28.469867+00:00 srv-files01 sshd[28309]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.44
+2026-10-30T10:55:30.581216+00:00 srv-files01 sshd[28309]: Failed password for invalid user elastic from 192.0.2.44 port 46323 ssh2
+2026-10-30T10:55:30.946563+00:00 srv-files01 sshd[28309]: Connection closed by invalid user elastic 192.0.2.44 port 46323 [preauth]
+2026-10-30T10:57:18.000498+00:00 srv-files01 sshd[27399]: Invalid user ubuntu from 198.51.100.170 port 41315
+2026-10-30T10:57:18.334851+00:00 srv-files01 sshd[27399]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:57:18.335997+00:00 srv-files01 sshd[27399]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.170
+2026-10-30T10:57:20.331748+00:00 srv-files01 sshd[27399]: Failed password for invalid user ubuntu from 198.51.100.170 port 41315 ssh2
+2026-10-30T10:57:21.487729+00:00 srv-files01 sshd[27399]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:57:21.490651+00:00 srv-files01 sshd[27399]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.170
+2026-10-30T10:57:23.365902+00:00 srv-files01 sshd[27399]: Failed password for invalid user ubuntu from 198.51.100.170 port 41315 ssh2
+2026-10-30T10:57:23.653516+00:00 srv-files01 sshd[27399]: Connection closed by invalid user ubuntu 198.51.100.170 port 41315 [preauth]
+2026-10-30T10:57:27.653618+00:00 srv-files01 sshd[27402]: Invalid user minecraft from 198.51.100.170 port 47416
+2026-10-30T10:57:27.943705+00:00 srv-files01 sshd[27402]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T10:57:27.945474+00:00 srv-files01 sshd[27402]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.170
+2026-10-30T10:57:29.701579+00:00 srv-files01 sshd[27402]: Failed password for invalid user minecraft from 198.51.100.170 port 47416 ssh2
+2026-10-30T10:57:30.096094+00:00 srv-files01 sshd[27402]: Connection closed by invalid user minecraft 198.51.100.170 port 47416 [preauth]
+2026-10-30T11:04:29.000666+00:00 srv-files01 sshd[27421]: Invalid user git from 192.0.2.236 port 39384
+2026-10-30T11:04:29.288721+00:00 srv-files01 sshd[27421]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:04:29.291100+00:00 srv-files01 sshd[27421]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.236
+2026-10-30T11:04:31.271760+00:00 srv-files01 sshd[27421]: Failed password for invalid user git from 192.0.2.236 port 39384 ssh2
+2026-10-30T11:04:31.976546+00:00 srv-files01 sshd[27421]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:04:31.979962+00:00 srv-files01 sshd[27421]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.236
+2026-10-30T11:04:33.652086+00:00 srv-files01 sshd[27421]: Failed password for invalid user git from 192.0.2.236 port 39384 ssh2
+2026-10-30T11:04:33.746916+00:00 srv-files01 sshd[27421]: Connection closed by invalid user git 192.0.2.236 port 39384 [preauth]
+2026-10-30T11:04:38.746226+00:00 srv-files01 sshd[27461]: Invalid user  from 192.0.2.236 port 60466
+2026-10-30T11:04:39.072694+00:00 srv-files01 sshd[27461]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:04:39.075362+00:00 srv-files01 sshd[27461]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.236
+2026-10-30T11:04:41.555813+00:00 srv-files01 sshd[27461]: Failed password for invalid user  from 192.0.2.236 port 60466 ssh2
+2026-10-30T11:04:42.081068+00:00 srv-files01 sshd[27461]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:04:42.082397+00:00 srv-files01 sshd[27461]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.236
+2026-10-30T11:04:44.360192+00:00 srv-files01 sshd[27461]: Failed password for invalid user  from 192.0.2.236 port 60466 ssh2
+2026-10-30T11:04:45.097708+00:00 srv-files01 sshd[27461]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:04:45.098343+00:00 srv-files01 sshd[27461]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.236
+2026-10-30T11:04:47.524053+00:00 srv-files01 sshd[27461]: Failed password for invalid user  from 192.0.2.236 port 60466 ssh2
+2026-10-30T11:04:47.809031+00:00 srv-files01 sshd[27461]: Connection closed by invalid user  192.0.2.236 port 60466 [preauth]
+2026-10-30T11:17:01.608420+00:00 srv-files01 CRON[26537]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T11:17:02.536455+00:00 srv-files01 CRON[26537]: pam_unix(cron:session): session closed for user root
+2026-10-30T11:21:46.000287+00:00 srv-files01 sshd[26853]: Received disconnect from 10.20.5.11 port 32873:11: disconnected by user
+2026-10-30T11:21:46.002244+00:00 srv-files01 sshd[26853]: Disconnected from user jpereira 10.20.5.11 port 32873
+2026-10-30T11:21:46.025467+00:00 srv-files01 sshd[26853]: pam_unix(sshd:session): session closed for user jpereira
+2026-10-30T11:21:46.076522+00:00 srv-files01 systemd-logind[812]: Session 157 logged out. Waiting for processes to exit.
+2026-10-30T11:21:46.104186+00:00 srv-files01 systemd-logind[812]: Removed session 157.
+2026-10-30T11:26:48.000921+00:00 srv-files01 sshd[30225]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.172  user=root
+2026-10-30T11:26:50.566057+00:00 srv-files01 sshd[30225]: Failed password for root from 203.0.113.172 port 37625 ssh2
+2026-10-30T11:26:51.089280+00:00 srv-files01 sshd[30225]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.172  user=root
+2026-10-30T11:26:53.182483+00:00 srv-files01 sshd[30225]: Failed password for root from 203.0.113.172 port 37625 ssh2
+2026-10-30T11:26:53.526368+00:00 srv-files01 sshd[30225]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.172  user=root
+2026-10-30T11:26:55.100405+00:00 srv-files01 sshd[30225]: Failed password for root from 203.0.113.172 port 37625 ssh2
+2026-10-30T11:26:55.247456+00:00 srv-files01 sshd[30225]: Connection closed by authenticating user root 203.0.113.172 port 37625 [preauth]
+2026-10-30T11:27:09.000689+00:00 srv-files01 sudo: jpereira : TTY=pts/0 ; PWD=/home/jpereira ; USER=root ; COMMAND=/usr/bin/apt update
+2026-10-30T11:27:09.006058+00:00 srv-files01 sudo[26875]: pam_unix(sudo:session): session opened for user root(uid=0) by jpereira(uid=1003)
+2026-10-30T11:27:10.081543+00:00 srv-files01 sudo[26875]: pam_unix(sudo:session): session closed for user root
+2026-10-30T11:30:06.000516+00:00 srv-files01 sshd[27701]: Invalid user teamspeak from 192.0.2.121 port 34218
+2026-10-30T11:30:06.311464+00:00 srv-files01 sshd[27701]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:30:06.314911+00:00 srv-files01 sshd[27701]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.121
+2026-10-30T11:30:08.554487+00:00 srv-files01 sshd[27701]: Failed password for invalid user teamspeak from 192.0.2.121 port 34218 ssh2
+2026-10-30T11:30:09.730716+00:00 srv-files01 sshd[27701]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:30:09.733805+00:00 srv-files01 sshd[27701]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.121
+2026-10-30T11:30:11.231178+00:00 srv-files01 sshd[27701]: Failed password for invalid user teamspeak from 192.0.2.121 port 34218 ssh2
+2026-10-30T11:30:11.341917+00:00 srv-files01 sshd[27701]: Connection closed by invalid user teamspeak 192.0.2.121 port 34218 [preauth]
+2026-10-30T11:36:55.000814+00:00 srv-files01 sshd[28208]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.113  user=root
+2026-10-30T11:36:56.675839+00:00 srv-files01 sshd[28208]: Failed password for root from 192.0.2.113 port 59575 ssh2
+2026-10-30T11:36:56.735297+00:00 srv-files01 sshd[28208]: Connection closed by authenticating user root 192.0.2.113 port 59575 [preauth]
+2026-10-30T11:37:14.735286+00:00 srv-files01 sshd[28242]: Invalid user hadoop from 192.0.2.113 port 33645
+2026-10-30T11:37:14.845392+00:00 srv-files01 sshd[28242]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:37:14.846739+00:00 srv-files01 sshd[28242]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.113
+2026-10-30T11:37:17.084953+00:00 srv-files01 sshd[28242]: Failed password for invalid user hadoop from 192.0.2.113 port 33645 ssh2
+2026-10-30T11:37:17.458254+00:00 srv-files01 sshd[28242]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:37:17.459961+00:00 srv-files01 sshd[28242]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.113
+2026-10-30T11:37:19.518845+00:00 srv-files01 sshd[28242]: Failed password for invalid user hadoop from 192.0.2.113 port 33645 ssh2
+2026-10-30T11:37:19.946420+00:00 srv-files01 sshd[28242]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:37:19.947125+00:00 srv-files01 sshd[28242]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.113
+2026-10-30T11:37:22.474612+00:00 srv-files01 sshd[28242]: Failed password for invalid user hadoop from 192.0.2.113 port 33645 ssh2
+2026-10-30T11:37:22.764832+00:00 srv-files01 sshd[28242]: Connection closed by invalid user hadoop 192.0.2.113 port 33645 [preauth]
+2026-10-30T11:39:11.000099+00:00 srv-files01 sshd[28359]: Invalid user test from 192.0.2.130 port 33595
+2026-10-30T11:39:11.374242+00:00 srv-files01 sshd[28359]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:39:11.375448+00:00 srv-files01 sshd[28359]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.130
+2026-10-30T11:39:13.694419+00:00 srv-files01 sshd[28359]: Failed password for invalid user test from 192.0.2.130 port 33595 ssh2
+2026-10-30T11:39:14.481803+00:00 srv-files01 sshd[28359]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:39:14.482217+00:00 srv-files01 sshd[28359]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.130
+2026-10-30T11:39:16.618301+00:00 srv-files01 sshd[28359]: Failed password for invalid user test from 192.0.2.130 port 33595 ssh2
+2026-10-30T11:39:16.965159+00:00 srv-files01 sshd[28359]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:39:16.968359+00:00 srv-files01 sshd[28359]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.130
+2026-10-30T11:39:18.502407+00:00 srv-files01 sshd[28359]: Failed password for invalid user test from 192.0.2.130 port 33595 ssh2
+2026-10-30T11:39:18.685732+00:00 srv-files01 sshd[28359]: Connection closed by invalid user test 192.0.2.130 port 33595 [preauth]
+2026-10-30T11:39:36.685054+00:00 srv-files01 sshd[28377]: Invalid user teamspeak from 192.0.2.130 port 63600
+2026-10-30T11:39:37.082253+00:00 srv-files01 sshd[28377]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:39:37.085772+00:00 srv-files01 sshd[28377]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.130
+2026-10-30T11:39:39.077087+00:00 srv-files01 sshd[28377]: Failed password for invalid user teamspeak from 192.0.2.130 port 63600 ssh2
+2026-10-30T11:39:39.394576+00:00 srv-files01 sshd[28377]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:39:39.396414+00:00 srv-files01 sshd[28377]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.130
+2026-10-30T11:39:40.904680+00:00 srv-files01 sshd[28377]: Failed password for invalid user teamspeak from 192.0.2.130 port 63600 ssh2
+2026-10-30T11:39:41.698572+00:00 srv-files01 sshd[28377]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T11:39:41.700023+00:00 srv-files01 sshd[28377]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.130
+2026-10-30T11:39:43.237317+00:00 srv-files01 sshd[28377]: Failed password for invalid user teamspeak from 192.0.2.130 port 63600 ssh2
+2026-10-30T11:39:43.603719+00:00 srv-files01 sshd[28377]: Connection closed by invalid user teamspeak 192.0.2.130 port 63600 [preauth]
+2026-10-30T11:47:02.000053+00:00 srv-files01 sshd[29526]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.185  user=root
+2026-10-30T11:47:03.780363+00:00 srv-files01 sshd[29526]: Failed password for root from 198.51.100.185 port 53234 ssh2
+2026-10-30T11:47:04.165461+00:00 srv-files01 sshd[29526]: Connection closed by authenticating user root 198.51.100.185 port 53234 [preauth]
+2026-10-30T11:53:21.000590+00:00 srv-files01 sudo: hferreira : TTY=pts/0 ; PWD=/home/hferreira ; USER=root ; COMMAND=/usr/bin/du -sh /srv/company
+2026-10-30T11:53:21.004270+00:00 srv-files01 sudo[26983]: pam_unix(sudo:session): session opened for user root(uid=0) by hferreira(uid=1016)
+2026-10-30T11:53:22.339755+00:00 srv-files01 sudo[26983]: pam_unix(sudo:session): session closed for user root
+2026-10-30T12:01:28.000861+00:00 srv-files01 sshd[28252]: error: kex_exchange_identification: Connection closed by remote host
+2026-10-30T12:01:28.002822+00:00 srv-files01 sshd[28252]: Connection closed by 198.51.100.63 port 57995
+2026-10-30T12:08:55.000253+00:00 srv-files01 sshd[29063]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.251  user=root
+2026-10-30T12:08:57.591936+00:00 srv-files01 sshd[29063]: Failed password for root from 192.0.2.251 port 54784 ssh2
+2026-10-30T12:08:58.401116+00:00 srv-files01 sshd[29063]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.251  user=root
+2026-10-30T12:09:00.710194+00:00 srv-files01 sshd[29063]: Failed password for root from 192.0.2.251 port 54784 ssh2
+2026-10-30T12:09:01.223551+00:00 srv-files01 sshd[29063]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.251  user=root
+2026-10-30T12:09:03.320775+00:00 srv-files01 sshd[29063]: Failed password for root from 192.0.2.251 port 54784 ssh2
+2026-10-30T12:09:03.392810+00:00 srv-files01 sshd[29063]: Connection closed by authenticating user root 192.0.2.251 port 54784 [preauth]
+2026-10-30T12:17:01.472990+00:00 srv-files01 CRON[26565]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T12:17:02.437352+00:00 srv-files01 CRON[26565]: pam_unix(cron:session): session closed for user root
+2026-10-30T12:46:41.000364+00:00 srv-files01 sshd[27714]: Invalid user teamspeak from 198.51.100.235 port 37932
+2026-10-30T12:46:41.162823+00:00 srv-files01 sshd[27714]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T12:46:41.165864+00:00 srv-files01 sshd[27714]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.235
+2026-10-30T12:46:42.877900+00:00 srv-files01 sshd[27714]: Failed password for invalid user teamspeak from 198.51.100.235 port 37932 ssh2
+2026-10-30T12:46:43.081731+00:00 srv-files01 sshd[27714]: Connection closed by invalid user teamspeak 198.51.100.235 port 37932 [preauth]
+2026-10-30T12:47:17.081442+00:00 srv-files01 sshd[27740]: Invalid user sol from 198.51.100.235 port 61922
+2026-10-30T12:47:17.292357+00:00 srv-files01 sshd[27740]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T12:47:17.293856+00:00 srv-files01 sshd[27740]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.235
+2026-10-30T12:47:19.764986+00:00 srv-files01 sshd[27740]: Failed password for invalid user sol from 198.51.100.235 port 61922 ssh2
+2026-10-30T12:47:20.238983+00:00 srv-files01 sshd[27740]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T12:47:20.239993+00:00 srv-files01 sshd[27740]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.235
+2026-10-30T12:47:21.990283+00:00 srv-files01 sshd[27740]: Failed password for invalid user sol from 198.51.100.235 port 61922 ssh2
+2026-10-30T12:47:22.975148+00:00 srv-files01 sshd[27740]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T12:47:22.978376+00:00 srv-files01 sshd[27740]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.235
+2026-10-30T12:47:24.846112+00:00 srv-files01 sshd[27740]: Failed password for invalid user sol from 198.51.100.235 port 61922 ssh2
+2026-10-30T12:47:25.171572+00:00 srv-files01 sshd[27740]: Connection closed by invalid user sol 198.51.100.235 port 61922 [preauth]
+2026-10-30T12:57:39.000214+00:00 srv-files01 sudo: hferreira : TTY=pts/0 ; PWD=/home/hferreira ; USER=root ; COMMAND=/usr/bin/journalctl -u ssh --since today
+2026-10-30T12:57:39.007241+00:00 srv-files01 sudo[27017]: pam_unix(sudo:session): session opened for user root(uid=0) by hferreira(uid=1016)
+2026-10-30T12:57:42.254750+00:00 srv-files01 sudo[27017]: pam_unix(sudo:session): session closed for user root
+2026-10-30T13:03:58.000802+00:00 srv-files01 sshd[28257]: error: kex_exchange_identification: Connection closed by remote host
+2026-10-30T13:03:58.001359+00:00 srv-files01 sshd[28257]: Connection closed by 192.0.2.40 port 37242
+2026-10-30T13:10:30.000851+00:00 srv-files01 sshd[26911]: Received disconnect from 10.20.2.10 port 50572:11: disconnected by user
+2026-10-30T13:10:30.004965+00:00 srv-files01 sshd[26911]: Disconnected from user isimoes 10.20.2.10 port 50572
+2026-10-30T13:10:30.030600+00:00 srv-files01 sshd[26911]: pam_unix(sshd:session): session closed for user isimoes
+2026-10-30T13:10:30.042603+00:00 srv-files01 systemd-logind[812]: Session 160 logged out. Waiting for processes to exit.
+2026-10-30T13:10:30.116317+00:00 srv-files01 systemd-logind[812]: Removed session 160.
+2026-10-30T13:16:37.000402+00:00 srv-files01 sshd[27051]: Received disconnect from 10.20.6.11 port 56594:11: disconnected by user
+2026-10-30T13:16:37.002272+00:00 srv-files01 sshd[27051]: Disconnected from user cmendes 10.20.6.11 port 56594
+2026-10-30T13:16:37.019116+00:00 srv-files01 sshd[27051]: pam_unix(sshd:session): session closed for user cmendes
+2026-10-30T13:16:37.083301+00:00 srv-files01 systemd-logind[812]: Session 163 logged out. Waiting for processes to exit.
+2026-10-30T13:16:37.157385+00:00 srv-files01 systemd-logind[812]: Removed session 163.
+2026-10-30T13:17:01.736724+00:00 srv-files01 CRON[26590]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T13:17:02.857579+00:00 srv-files01 CRON[26590]: pam_unix(cron:session): session closed for user root
+2026-10-30T13:37:26.000456+00:00 srv-files01 sshd[28459]: Connection closed by 203.0.113.131 port 52375 [preauth]
+2026-10-30T13:51:37.000994+00:00 srv-files01 sshd[27333]: Invalid user centos from 198.51.100.193 port 38003
+2026-10-30T13:51:37.187565+00:00 srv-files01 sshd[27333]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T13:51:37.190715+00:00 srv-files01 sshd[27333]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.193
+2026-10-30T13:51:39.128170+00:00 srv-files01 sshd[27333]: Failed password for invalid user centos from 198.51.100.193 port 38003 ssh2
+2026-10-30T13:51:40.110846+00:00 srv-files01 sshd[27333]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T13:51:40.111828+00:00 srv-files01 sshd[27333]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.193
+2026-10-30T13:51:42.069430+00:00 srv-files01 sshd[27333]: Failed password for invalid user centos from 198.51.100.193 port 38003 ssh2
+2026-10-30T13:51:43.088819+00:00 srv-files01 sshd[27333]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T13:51:43.089421+00:00 srv-files01 sshd[27333]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.193
+2026-10-30T13:51:44.838990+00:00 srv-files01 sshd[27333]: Failed password for invalid user centos from 198.51.100.193 port 38003 ssh2
+2026-10-30T13:51:45.051580+00:00 srv-files01 sshd[27333]: Connection closed by invalid user centos 198.51.100.193 port 38003 [preauth]
+2026-10-30T13:52:15.051620+00:00 srv-files01 sshd[27364]: Invalid user nagios from 198.51.100.193 port 56348
+2026-10-30T13:52:15.293764+00:00 srv-files01 sshd[27364]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T13:52:15.296781+00:00 srv-files01 sshd[27364]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.193
+2026-10-30T13:52:16.992122+00:00 srv-files01 sshd[27364]: Failed password for invalid user nagios from 198.51.100.193 port 56348 ssh2
+2026-10-30T13:52:17.812159+00:00 srv-files01 sshd[27364]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T13:52:17.813145+00:00 srv-files01 sshd[27364]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.193
+2026-10-30T13:52:20.077490+00:00 srv-files01 sshd[27364]: Failed password for invalid user nagios from 198.51.100.193 port 56348 ssh2
+2026-10-30T13:52:21.206157+00:00 srv-files01 sshd[27364]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T13:52:21.209561+00:00 srv-files01 sshd[27364]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.193
+2026-10-30T13:52:23.648137+00:00 srv-files01 sshd[27364]: Failed password for invalid user nagios from 198.51.100.193 port 56348 ssh2
+2026-10-30T13:52:23.962304+00:00 srv-files01 sshd[27364]: Connection closed by invalid user nagios 198.51.100.193 port 56348 [preauth]
+2026-10-30T14:03:48.000091+00:00 srv-files01 sshd[27613]: Connection closed by 198.51.100.15 port 40886 [preauth]
+2026-10-30T14:05:40.000186+00:00 srv-files01 sshd[30926]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.20.2.10  user=isimoes
+2026-10-30T14:05:42.527481+00:00 srv-files01 sshd[30926]: Failed password for isimoes from 10.20.2.10 port 64931 ssh2
+2026-10-30T14:05:51.527546+00:00 srv-files01 sshd[30926]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.20.2.10  user=isimoes
+2026-10-30T14:05:53.483906+00:00 srv-files01 sshd[30926]: Failed password for isimoes from 10.20.2.10 port 64931 ssh2
+2026-10-30T14:06:01.483208+00:00 srv-files01 sshd[30926]: Connection closed by authenticating user isimoes 10.20.2.10 port 64931 [preauth]
+2026-10-30T14:06:36.483831+00:00 srv-files01 sshd[30965]: Accepted password for isimoes from 10.20.2.10 port 32932 ssh2
+2026-10-30T14:06:36.504757+00:00 srv-files01 sshd[30965]: pam_unix(sshd:session): session opened for user isimoes(uid=1007) by (uid=0)
+2026-10-30T14:06:36.518569+00:00 srv-files01 systemd-logind[812]: New session 168 of user isimoes.
+2026-10-30T14:06:36.773140+00:00 srv-files01 sshd[30966]: subsystem request for sftp by user isimoes
+2026-10-30T14:17:01.401265+00:00 srv-files01 CRON[26608]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T14:17:02.394382+00:00 srv-files01 CRON[26608]: pam_unix(cron:session): session closed for user root
+2026-10-30T14:38:43.000702+00:00 srv-files01 sshd[28071]: Invalid user solana from 198.51.100.236 port 43613
+2026-10-30T14:38:43.243513+00:00 srv-files01 sshd[28071]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T14:38:43.245105+00:00 srv-files01 sshd[28071]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.236
+2026-10-30T14:38:45.659812+00:00 srv-files01 sshd[28071]: Failed password for invalid user solana from 198.51.100.236 port 43613 ssh2
+2026-10-30T14:38:45.711137+00:00 srv-files01 sshd[28071]: Connection closed by invalid user solana 198.51.100.236 port 43613 [preauth]
+2026-10-30T14:49:45.000653+00:00 srv-files01 sshd[28110]: Invalid user nagios from 192.0.2.197 port 49890
+2026-10-30T14:49:45.396568+00:00 srv-files01 sshd[28110]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T14:49:45.398747+00:00 srv-files01 sshd[28110]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.197
+2026-10-30T14:49:47.238054+00:00 srv-files01 sshd[28110]: Failed password for invalid user nagios from 192.0.2.197 port 49890 ssh2
+2026-10-30T14:49:47.891138+00:00 srv-files01 sshd[28110]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T14:49:47.892350+00:00 srv-files01 sshd[28110]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.197
+2026-10-30T14:49:49.432792+00:00 srv-files01 sshd[28110]: Failed password for invalid user nagios from 192.0.2.197 port 49890 ssh2
+2026-10-30T14:49:49.502509+00:00 srv-files01 sshd[28110]: Connection closed by invalid user nagios 192.0.2.197 port 49890 [preauth]
+2026-10-30T14:50:03.502374+00:00 srv-files01 sshd[28129]: Invalid user  from 192.0.2.197 port 45035
+2026-10-30T14:50:03.671110+00:00 srv-files01 sshd[28129]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T14:50:03.673867+00:00 srv-files01 sshd[28129]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.197
+2026-10-30T14:50:05.492457+00:00 srv-files01 sshd[28129]: Failed password for invalid user  from 192.0.2.197 port 45035 ssh2
+2026-10-30T14:50:06.161385+00:00 srv-files01 sshd[28129]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T14:50:06.163098+00:00 srv-files01 sshd[28129]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.197
+2026-10-30T14:50:08.439971+00:00 srv-files01 sshd[28129]: Failed password for invalid user  from 192.0.2.197 port 45035 ssh2
+2026-10-30T14:50:09.602245+00:00 srv-files01 sshd[28129]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T14:50:09.603318+00:00 srv-files01 sshd[28129]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.197
+2026-10-30T14:50:11.117491+00:00 srv-files01 sshd[28129]: Failed password for invalid user  from 192.0.2.197 port 45035 ssh2
+2026-10-30T14:50:11.502198+00:00 srv-files01 sshd[28129]: Connection closed by invalid user  192.0.2.197 port 45035 [preauth]
+2026-10-30T14:54:26.000282+00:00 srv-files01 sshd[30093]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.142  user=root
+2026-10-30T14:54:27.800506+00:00 srv-files01 sshd[30093]: Failed password for root from 203.0.113.142 port 41461 ssh2
+2026-10-30T14:54:28.786539+00:00 srv-files01 sshd[30093]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.142  user=root
+2026-10-30T14:54:31.135204+00:00 srv-files01 sshd[30093]: Failed password for root from 203.0.113.142 port 41461 ssh2
+2026-10-30T14:54:31.502153+00:00 srv-files01 sshd[30093]: Connection closed by authenticating user root 203.0.113.142 port 41461 [preauth]
+2026-10-30T15:15:06.000269+00:00 srv-files01 sshd[26838]: Received disconnect from 10.20.1.12 port 41919:11: disconnected by user
+2026-10-30T15:15:06.003130+00:00 srv-files01 sshd[26838]: Disconnected from user mcosta 10.20.1.12 port 41919
+2026-10-30T15:15:06.006570+00:00 srv-files01 sshd[26838]: pam_unix(sshd:session): session closed for user mcosta
+2026-10-30T15:15:06.065674+00:00 srv-files01 systemd-logind[812]: Session 156 logged out. Waiting for processes to exit.
+2026-10-30T15:15:06.157747+00:00 srv-files01 systemd-logind[812]: Removed session 156.
+2026-10-30T15:17:01.629448+00:00 srv-files01 CRON[26630]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T15:17:02.499928+00:00 srv-files01 CRON[26630]: pam_unix(cron:session): session closed for user root
+2026-10-30T15:44:45.000428+00:00 srv-files01 sshd[29190]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.41  user=root
+2026-10-30T15:44:47.330998+00:00 srv-files01 sshd[29190]: Failed password for root from 192.0.2.41 port 38319 ssh2
+2026-10-30T15:44:47.410057+00:00 srv-files01 sshd[29190]: Connection closed by authenticating user root 192.0.2.41 port 38319 [preauth]
+2026-10-30T15:49:03.000411+00:00 srv-files01 sshd[29736]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.247  user=root
+2026-10-30T15:49:04.533637+00:00 srv-files01 sshd[29736]: Failed password for root from 198.51.100.247 port 46175 ssh2
+2026-10-30T15:49:04.991183+00:00 srv-files01 sshd[29736]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.247  user=root
+2026-10-30T15:49:07.522350+00:00 srv-files01 sshd[29736]: Failed password for root from 198.51.100.247 port 46175 ssh2
+2026-10-30T15:49:07.812695+00:00 srv-files01 sshd[29736]: Connection closed by authenticating user root 198.51.100.247 port 46175 [preauth]
+2026-10-30T16:09:16.000258+00:00 srv-files01 sshd[26829]: Received disconnect from 10.20.1.21 port 54356:11: disconnected by user
+2026-10-30T16:09:16.004833+00:00 srv-files01 sshd[26829]: Disconnected from user asilva 10.20.1.21 port 54356
+2026-10-30T16:09:16.006242+00:00 srv-files01 sshd[26829]: pam_unix(sshd:session): session closed for user asilva
+2026-10-30T16:09:16.070289+00:00 srv-files01 systemd-logind[812]: Session 155 logged out. Waiting for processes to exit.
+2026-10-30T16:09:16.117475+00:00 srv-files01 systemd-logind[812]: Removed session 155.
+2026-10-30T16:17:01.049506+00:00 srv-files01 CRON[26633]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T16:17:02.190075+00:00 srv-files01 CRON[26633]: pam_unix(cron:session): session closed for user root
+2026-10-30T16:23:59.000102+00:00 srv-files01 sshd[27888]: banner exchange: Connection from 192.0.2.197 port 47354: invalid format
+2026-10-30T16:40:24.000796+00:00 srv-files01 sshd[26878]: Received disconnect from 10.20.4.30 port 41159:11: disconnected by user
+2026-10-30T16:40:24.003932+00:00 srv-files01 sshd[26878]: Disconnected from user jgoncalves 10.20.4.30 port 41159
+2026-10-30T16:40:24.015872+00:00 srv-files01 sshd[26878]: pam_unix(sshd:session): session closed for user jgoncalves
+2026-10-30T16:40:24.045335+00:00 srv-files01 systemd-logind[812]: Session 158 logged out. Waiting for processes to exit.
+2026-10-30T16:40:24.191196+00:00 srv-files01 systemd-logind[812]: Removed session 158.
+2026-10-30T16:47:20.000226+00:00 srv-files01 sshd[26958]: Received disconnect from 10.20.5.13 port 37203:11: disconnected by user
+2026-10-30T16:47:20.003607+00:00 srv-files01 sshd[26958]: Disconnected from user hferreira 10.20.5.13 port 37203
+2026-10-30T16:47:20.022024+00:00 srv-files01 sshd[26958]: pam_unix(sshd:session): session closed for user hferreira
+2026-10-30T16:47:20.076309+00:00 srv-files01 systemd-logind[812]: Session 162 logged out. Waiting for processes to exit.
+2026-10-30T16:47:20.145477+00:00 srv-files01 systemd-logind[812]: Removed session 162.
+2026-10-30T16:58:55.000123+00:00 srv-files01 sshd[27074]: Received disconnect from 10.20.4.40 port 32957:11: disconnected by user
+2026-10-30T16:58:55.004809+00:00 srv-files01 sshd[27074]: Disconnected from user lcastro 10.20.4.40 port 32957
+2026-10-30T16:58:55.023011+00:00 srv-files01 sshd[27074]: pam_unix(sshd:session): session closed for user lcastro
+2026-10-30T16:58:55.084513+00:00 srv-files01 systemd-logind[812]: Session 164 logged out. Waiting for processes to exit.
+2026-10-30T16:58:55.109133+00:00 srv-files01 systemd-logind[812]: Removed session 164.
+2026-10-30T17:17:01.223632+00:00 srv-files01 CRON[26637]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T17:17:02.644629+00:00 srv-files01 CRON[26637]: pam_unix(cron:session): session closed for user root
+2026-10-30T17:21:36.483649+00:00 srv-files01 sshd[30965]: Received disconnect from 10.20.2.10 port 32932:11: disconnected by user
+2026-10-30T17:21:36.484711+00:00 srv-files01 sshd[30965]: Disconnected from user isimoes 10.20.2.10 port 32932
+2026-10-30T17:21:36.505419+00:00 srv-files01 sshd[30965]: pam_unix(sshd:session): session closed for user isimoes
+2026-10-30T17:21:36.552333+00:00 srv-files01 systemd-logind[812]: Session 168 logged out. Waiting for processes to exit.
+2026-10-30T17:21:36.651041+00:00 srv-files01 systemd-logind[812]: Removed session 168.
+2026-10-30T17:21:52.000942+00:00 srv-files01 sshd[30646]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.60  user=root
+2026-10-30T17:21:54.327255+00:00 srv-files01 sshd[30646]: Failed password for root from 203.0.113.60 port 40047 ssh2
+2026-10-30T17:21:54.539657+00:00 srv-files01 sshd[30646]: Connection closed by authenticating user root 203.0.113.60 port 40047 [preauth]
+2026-10-30T17:23:24.000357+00:00 srv-files01 sshd[28407]: Received disconnect from 198.51.100.243 port 57509:11: Bye Bye [preauth]
+2026-10-30T17:23:24.003327+00:00 srv-files01 sshd[28407]: Disconnected from 198.51.100.243 port 53747 [preauth]
+2026-10-30T17:39:21.000343+00:00 srv-files01 sshd[29380]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.146  user=root
+2026-10-30T17:39:23.316371+00:00 srv-files01 sshd[29380]: Failed password for root from 198.51.100.146 port 50945 ssh2
+2026-10-30T17:39:23.698163+00:00 srv-files01 sshd[29380]: Connection closed by authenticating user root 198.51.100.146 port 50945 [preauth]
+2026-10-30T17:47:16.000355+00:00 srv-files01 sshd[27869]: Connection closed by 198.51.100.93 port 40303 [preauth]
+2026-10-30T18:11:14.000237+00:00 srv-files01 sshd[27751]: Invalid user jenkins from 192.0.2.170 port 53489
+2026-10-30T18:11:14.160207+00:00 srv-files01 sshd[27751]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T18:11:14.162535+00:00 srv-files01 sshd[27751]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.170
+2026-10-30T18:11:16.693089+00:00 srv-files01 sshd[27751]: Failed password for invalid user jenkins from 192.0.2.170 port 53489 ssh2
+2026-10-30T18:11:17.432204+00:00 srv-files01 sshd[27751]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T18:11:17.434371+00:00 srv-files01 sshd[27751]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.170
+2026-10-30T18:11:19.097934+00:00 srv-files01 sshd[27751]: Failed password for invalid user jenkins from 192.0.2.170 port 53489 ssh2
+2026-10-30T18:11:19.311754+00:00 srv-files01 sshd[27751]: Connection closed by invalid user jenkins 192.0.2.170 port 53489 [preauth]
+2026-10-30T18:11:40.311414+00:00 srv-files01 sshd[27770]: Invalid user hadoop from 192.0.2.170 port 62651
+2026-10-30T18:11:40.584215+00:00 srv-files01 sshd[27770]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T18:11:40.586882+00:00 srv-files01 sshd[27770]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.170
+2026-10-30T18:11:42.351030+00:00 srv-files01 sshd[27770]: Failed password for invalid user hadoop from 192.0.2.170 port 62651 ssh2
+2026-10-30T18:11:43.340700+00:00 srv-files01 sshd[27770]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T18:11:43.342126+00:00 srv-files01 sshd[27770]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.170
+2026-10-30T18:11:44.876037+00:00 srv-files01 sshd[27770]: Failed password for invalid user hadoop from 192.0.2.170 port 62651 ssh2
+2026-10-30T18:11:45.001851+00:00 srv-files01 sshd[27770]: Connection closed by invalid user hadoop 192.0.2.170 port 62651 [preauth]
+2026-10-30T18:15:11.000416+00:00 srv-files01 sshd[27480]: error: kex_exchange_identification: Connection closed by remote host
+2026-10-30T18:15:11.003303+00:00 srv-files01 sshd[27480]: Connection closed by 198.51.100.140 port 60616
+2026-10-30T18:15:15.000813+00:00 srv-files01 sshd[27245]: Invalid user dev from 192.0.2.199 port 60687
+2026-10-30T18:15:15.280081+00:00 srv-files01 sshd[27245]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T18:15:15.283555+00:00 srv-files01 sshd[27245]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.199
+2026-10-30T18:15:17.373857+00:00 srv-files01 sshd[27245]: Failed password for invalid user dev from 192.0.2.199 port 60687 ssh2
+2026-10-30T18:15:18.326876+00:00 srv-files01 sshd[27245]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T18:15:18.327206+00:00 srv-files01 sshd[27245]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.199
+2026-10-30T18:15:20.871997+00:00 srv-files01 sshd[27245]: Failed password for invalid user dev from 192.0.2.199 port 60687 ssh2
+2026-10-30T18:15:22.065997+00:00 srv-files01 sshd[27245]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T18:15:22.067711+00:00 srv-files01 sshd[27245]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.199
+2026-10-30T18:15:24.127355+00:00 srv-files01 sshd[27245]: Failed password for invalid user dev from 192.0.2.199 port 60687 ssh2
+2026-10-30T18:15:24.504361+00:00 srv-files01 sshd[27245]: Connection closed by invalid user dev 192.0.2.199 port 60687 [preauth]
+2026-10-30T18:15:45.504094+00:00 srv-files01 sshd[27271]: Invalid user postgres from 192.0.2.199 port 42712
+2026-10-30T18:15:45.694044+00:00 srv-files01 sshd[27271]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T18:15:45.695213+00:00 srv-files01 sshd[27271]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.199
+2026-10-30T18:15:47.255858+00:00 srv-files01 sshd[27271]: Failed password for invalid user postgres from 192.0.2.199 port 42712 ssh2
+2026-10-30T18:15:47.466060+00:00 srv-files01 sshd[27271]: Connection closed by invalid user postgres 192.0.2.199 port 42712 [preauth]
+2026-10-30T18:17:01.034579+00:00 srv-files01 CRON[26676]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T18:17:02.361950+00:00 srv-files01 CRON[26676]: pam_unix(cron:session): session closed for user root
+2026-10-30T19:17:01.312889+00:00 srv-files01 CRON[26697]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T19:17:02.108307+00:00 srv-files01 CRON[26697]: pam_unix(cron:session): session closed for user root
+2026-10-30T19:22:13.000443+00:00 srv-files01 sshd[28107]: Received disconnect from 198.51.100.88 port 38885:11: Bye Bye [preauth]
+2026-10-30T19:22:13.003144+00:00 srv-files01 sshd[28107]: Disconnected from 198.51.100.88 port 45244 [preauth]
+2026-10-30T19:26:23.000171+00:00 srv-files01 sshd[27781]: Connection closed by 192.0.2.13 port 63712 [preauth]
+2026-10-30T19:32:15.000249+00:00 srv-files01 sshd[27811]: Invalid user minecraft from 192.0.2.15 port 47561
+2026-10-30T19:32:15.316403+00:00 srv-files01 sshd[27811]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T19:32:15.317019+00:00 srv-files01 sshd[27811]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.15
+2026-10-30T19:32:17.443269+00:00 srv-files01 sshd[27811]: Failed password for invalid user minecraft from 192.0.2.15 port 47561 ssh2
+2026-10-30T19:32:17.756014+00:00 srv-files01 sshd[27811]: Connection closed by invalid user minecraft 192.0.2.15 port 47561 [preauth]
+2026-10-30T19:37:26.000709+00:00 srv-files01 sshd[28166]: Invalid user elastic from 203.0.113.236 port 47681
+2026-10-30T19:37:26.295433+00:00 srv-files01 sshd[28166]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T19:37:26.298665+00:00 srv-files01 sshd[28166]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.236
+2026-10-30T19:37:28.046238+00:00 srv-files01 sshd[28166]: Failed password for invalid user elastic from 203.0.113.236 port 47681 ssh2
+2026-10-30T19:37:29.081982+00:00 srv-files01 sshd[28166]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T19:37:29.082142+00:00 srv-files01 sshd[28166]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.236
+2026-10-30T19:37:31.476591+00:00 srv-files01 sshd[28166]: Failed password for invalid user elastic from 203.0.113.236 port 47681 ssh2
+2026-10-30T19:37:32.636657+00:00 srv-files01 sshd[28166]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T19:37:32.638913+00:00 srv-files01 sshd[28166]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.236
+2026-10-30T19:37:35.091418+00:00 srv-files01 sshd[28166]: Failed password for invalid user elastic from 203.0.113.236 port 47681 ssh2
+2026-10-30T19:37:35.242284+00:00 srv-files01 sshd[28166]: Connection closed by invalid user elastic 203.0.113.236 port 47681 [preauth]
+2026-10-30T19:37:59.242292+00:00 srv-files01 sshd[28186]: Invalid user ubuntu from 203.0.113.236 port 53744
+2026-10-30T19:37:59.417660+00:00 srv-files01 sshd[28186]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T19:37:59.419351+00:00 srv-files01 sshd[28186]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.236
+2026-10-30T19:38:01.585805+00:00 srv-files01 sshd[28186]: Failed password for invalid user ubuntu from 203.0.113.236 port 53744 ssh2
+2026-10-30T19:38:02.582172+00:00 srv-files01 sshd[28186]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T19:38:02.585137+00:00 srv-files01 sshd[28186]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.236
+2026-10-30T19:38:04.405017+00:00 srv-files01 sshd[28186]: Failed password for invalid user ubuntu from 203.0.113.236 port 53744 ssh2
+2026-10-30T19:38:04.455753+00:00 srv-files01 sshd[28186]: Connection closed by invalid user ubuntu 203.0.113.236 port 53744 [preauth]
+2026-10-30T19:43:08.000828+00:00 srv-files01 sshd[27543]: Connection closed by 198.51.100.28 port 63722 [preauth]
+2026-10-30T20:17:01.134564+00:00 srv-files01 CRON[26713]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T20:17:02.218766+00:00 srv-files01 CRON[26713]: pam_unix(cron:session): session closed for user root
+2026-10-30T20:20:01.000435+00:00 srv-files01 sshd[27220]: Invalid user vagrant from 192.0.2.96 port 54295
+2026-10-30T20:20:01.398532+00:00 srv-files01 sshd[27220]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T20:20:01.401197+00:00 srv-files01 sshd[27220]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.96
+2026-10-30T20:20:02.993592+00:00 srv-files01 sshd[27220]: Failed password for invalid user vagrant from 192.0.2.96 port 54295 ssh2
+2026-10-30T20:20:03.630756+00:00 srv-files01 sshd[27220]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T20:20:03.632503+00:00 srv-files01 sshd[27220]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.96
+2026-10-30T20:20:05.528095+00:00 srv-files01 sshd[27220]: Failed password for invalid user vagrant from 192.0.2.96 port 54295 ssh2
+2026-10-30T20:20:05.787563+00:00 srv-files01 sshd[27220]: Connection closed by invalid user vagrant 192.0.2.96 port 54295 [preauth]
+2026-10-30T21:00:06.000981+00:00 srv-files01 sshd[28060]: Invalid user validator from 192.0.2.222 port 58411
+2026-10-30T21:00:06.300783+00:00 srv-files01 sshd[28060]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T21:00:06.302235+00:00 srv-files01 sshd[28060]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.222
+2026-10-30T21:00:08.593407+00:00 srv-files01 sshd[28060]: Failed password for invalid user validator from 192.0.2.222 port 58411 ssh2
+2026-10-30T21:00:08.645846+00:00 srv-files01 sshd[28060]: Connection closed by invalid user validator 192.0.2.222 port 58411 [preauth]
+2026-10-30T21:17:01.150420+00:00 srv-files01 CRON[26737]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T21:17:02.484981+00:00 srv-files01 CRON[26737]: pam_unix(cron:session): session closed for user root
+2026-10-30T21:31:08.000855+00:00 srv-files01 sshd[26883]: Accepted publickey for jgoncalves from 10.8.0.22 port 55971 ssh2: ED25519 SHA256:ONoP0ET59gk+oTQ3MiV+pIkubhRxxk1HSXVUIzpXyBS
+2026-10-30T21:31:08.022260+00:00 srv-files01 sshd[26883]: pam_unix(sshd:session): session opened for user jgoncalves(uid=1006) by (uid=0)
+2026-10-30T21:31:08.042071+00:00 srv-files01 systemd-logind[812]: New session 159 of user jgoncalves.
+2026-10-30T21:37:27.000264+00:00 srv-files01 sshd[26883]: Received disconnect from 10.8.0.22 port 55971:11: disconnected by user
+2026-10-30T21:37:27.003081+00:00 srv-files01 sshd[26883]: Disconnected from user jgoncalves 10.8.0.22 port 55971
+2026-10-30T21:37:27.021967+00:00 srv-files01 sshd[26883]: pam_unix(sshd:session): session closed for user jgoncalves
+2026-10-30T21:37:27.040957+00:00 srv-files01 systemd-logind[812]: Session 159 logged out. Waiting for processes to exit.
+2026-10-30T21:37:27.111812+00:00 srv-files01 systemd-logind[812]: Removed session 159.
+2026-10-30T21:39:56.000274+00:00 srv-files01 sshd[27658]: banner exchange: Connection from 198.51.100.153 port 52817: invalid format
+2026-10-30T21:53:57.000198+00:00 srv-files01 sshd[27564]: Invalid user steam from 198.51.100.226 port 50028
+2026-10-30T21:53:57.103720+00:00 srv-files01 sshd[27564]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T21:53:57.104810+00:00 srv-files01 sshd[27564]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.226
+2026-10-30T21:53:58.625105+00:00 srv-files01 sshd[27564]: Failed password for invalid user steam from 198.51.100.226 port 50028 ssh2
+2026-10-30T21:53:58.750486+00:00 srv-files01 sshd[27564]: Connection closed by invalid user steam 198.51.100.226 port 50028 [preauth]
+2026-10-30T21:54:12.750459+00:00 srv-files01 sshd[27581]: Invalid user guest from 198.51.100.226 port 57937
+2026-10-30T21:54:12.922621+00:00 srv-files01 sshd[27581]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T21:54:12.925916+00:00 srv-files01 sshd[27581]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.226
+2026-10-30T21:54:15.459092+00:00 srv-files01 sshd[27581]: Failed password for invalid user guest from 198.51.100.226 port 57937 ssh2
+2026-10-30T21:54:15.984758+00:00 srv-files01 sshd[27581]: pam_unix(sshd:auth): check pass; user unknown
+2026-10-30T21:54:15.985693+00:00 srv-files01 sshd[27581]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.226
+2026-10-30T21:54:17.921289+00:00 srv-files01 sshd[27581]: Failed password for invalid user guest from 198.51.100.226 port 57937 ssh2
+2026-10-30T21:54:18.013540+00:00 srv-files01 sshd[27581]: Connection closed by invalid user guest 198.51.100.226 port 57937 [preauth]
+2026-10-30T22:11:50.000806+00:00 srv-files01 sshd[28664]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.132  user=root
+2026-10-30T22:11:52.088186+00:00 srv-files01 sshd[28664]: Failed password for root from 192.0.2.132 port 40272 ssh2
+2026-10-30T22:11:52.335013+00:00 srv-files01 sshd[28664]: Connection closed by authenticating user root 192.0.2.132 port 40272 [preauth]
+2026-10-30T22:17:01.358645+00:00 srv-files01 CRON[26764]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T22:17:02.433013+00:00 srv-files01 CRON[26764]: pam_unix(cron:session): session closed for user root
+2026-10-30T22:19:00.000658+00:00 srv-files01 sshd[29158]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.36  user=root
+2026-10-30T22:19:02.146333+00:00 srv-files01 sshd[29158]: Failed password for root from 192.0.2.36 port 36601 ssh2
+2026-10-30T22:19:03.259640+00:00 srv-files01 sshd[29158]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.36  user=root
+2026-10-30T22:19:05.740796+00:00 srv-files01 sshd[29158]: Failed password for root from 192.0.2.36 port 36601 ssh2
+2026-10-30T22:19:06.436293+00:00 srv-files01 sshd[29158]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.0.2.36  user=root
+2026-10-30T22:19:08.066293+00:00 srv-files01 sshd[29158]: Failed password for root from 192.0.2.36 port 36601 ssh2
+2026-10-30T22:19:08.296108+00:00 srv-files01 sshd[29158]: Connection closed by authenticating user root 192.0.2.36 port 36601 [preauth]
+2026-10-30T23:17:01.427511+00:00 srv-files01 CRON[26788]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+2026-10-30T23:17:02.319522+00:00 srv-files01 CRON[26788]: pam_unix(cron:session): session closed for user root

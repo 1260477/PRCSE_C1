@@ -132,3 +132,27 @@ O `provision.sh` segue uma abordagem **fail-fast na estrutura e resiliente nos d
 - `${EXISTING_EMP_USER["$emp_id"]:-}`: o `:-` devolve string vazia se a chave não existir no dicionário, evitando erro com `set -u`.
 - `LC_ALL=C chage -l "$username"`: força o output em inglês independentemente do idioma do sistema operativo.
 - `IFS=',' read -r -a arr <<< "$csv"`: divide uma string separada por vírgulas diretamente para um array Bash.
+
+---
+
+## Fase 3 — Offboarding e Desaparecimentos
+
+### O que foi implementado e porquê
+1. **`status = left` sem conta existente (`offboard_users` — Passo 3.1):**
+   - Se um colaborador aparece no CSV com `status = left`, mas `EXISTING_EMP_USER["$emp_id"]` está vazio (ou `id "$username"` não existe), o script faz `continue` silenciosamente: não cria conta, não reserva username e não regista alterações.
+2. **`status = left` com conta existente (`offboard_users` — Passo 3.2, explicado em detalhe):**
+   - A ordem das operações é crítica para segurança e integridade dos dados:
+     1. **Bloquear conta e terminar sessões:** `usermod -L "$username"` bloqueia a password, mas por si só não impede logins por chave SSH; por isso aplica-se também `chage -E 0 "$username"` (expira a conta de imediato). De seguida, `pkill -TERM -u "$username"` e, após `sleep 1`, `pkill -KILL -u "$username"` terminam processos ativos (com `2>/dev/null || true`, porque `pkill` devolve exit code `1` quando não há processos e `set -e` abortaria o script).
+     2. **Arquivar a pasta home e validar integridade:** descobre-se a home real com `getent passwd "$username" | cut -d: -f6`. Garante-se `/srv/archive` com permissões `0700` (`root:root`) e cria-se `/srv/archive/<username>_<emp_id>_<YYYY-MM-DD>.tar.gz` com `tar -czf "$archive_path" -C "$(dirname "$home_dir")" "$(basename "$home_dir")"` (usando `-C` para guardar caminhos relativos, sem `/home/...` absoluto) e `chmod 0600`. Antes de apagar qualquer ficheiro, valida-se o arquivo com `gzip -t "$archive_path"` e `tar -tzf "$archive_path" >/dev/null` — se falhar, `fatal` aborta o offboarding desse utilizador para evitar perda de dados.
+     3. **Transferir propriedade em `/srv/company`:** `find "$COMPANY_DIR" -user "$username" -exec chown -h root {} +` muda apenas o dono para `root`, **preservando o grupo original** (ao omitir `:grupo` no `chown`), evitando ficheiros com UID órfão sem quebrar o acesso da equipa. O `-h` impede seguir symlinks.
+     4. **Histórico, crontab e remoção:** chama-se `record_used_username "$username"` para garantir que o username nunca é reutilizado; remove-se a crontab com `crontab -r -u "$username" 2>/dev/null || true` (para não falhar se não existir crontab); e remove-se a conta/home com `userdel -r "$username" 2>/dev/null || userdel "$username"`.
+3. **Desaparecimento do CSV sem `status = left` (`warn_missing_users` — Passo 3.3):**
+   - Percorre as chaves de `EXISTING_EMP_USER` (todas as contas Linux geridas com `(E...)` no GECOS) e verifica se falta entrada em `EMP_STATUS["$emp_id"]`.
+   - Se faltar, imprime apenas um `Warning:` para `stderr` — **nunca** remove nem bloqueia a conta, e não altera `CHANGES_MADE` nem `HAS_REJECTED`.
+
+### Sintaxe Bash para recordar na defesa
+- `chown -h root ficheiro`: altera apenas o *owner* para `root`, mantendo o *group* intacto; `-h` atua no próprio symlink em vez do alvo.
+- `tar -czf destino.tar.gz -C /pai pasta`: muda para `/pai` antes de comprimir `pasta`, evitando caminhos absolutos dentro do `.tar.gz`.
+- `gzip -t arquivo.tar.gz && tar -tzf arquivo.tar.gz >/dev/null`: testa a integridade da compressão e da estrutura `tar` antes de apagar a home original.
+- `comando || true`: impede que `set -e` aborte o script quando um comando auxiliar (como `pkill` sem processos ou `crontab -r` sem crontab) devolve código diferente de `0`.
+- `for emp_id in "${!EXISTING_EMP_USER[@]}"`: o `!` antes do nome do array associativo itera sobre as **chaves** (neste caso os `employee_id`), e não sobre os valores.

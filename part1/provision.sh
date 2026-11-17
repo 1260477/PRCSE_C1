@@ -15,6 +15,10 @@ readonly USERNAME_HISTORY_FILE="/var/lib/provision/usernames.txt"
 # Ficheiro onde ficam guardadas as passwords iniciais das novas contas (só root lê)
 readonly INITIAL_PASSWORDS_FILE="/root/initial-passwords.txt"
 
+# Diretórios usados no offboarding e nas pastas partilhadas
+readonly ARCHIVE_DIR="/srv/archive"
+readonly COMPANY_DIR="/srv/company"
+
 # Variáveis globais para opções, caminhos dos CSVs e contadores de estado
 DRY_RUN=0
 EMP_CSV=""
@@ -847,6 +851,101 @@ ensure_sudo_access() {
     fi
 }
 
+# Trata o offboarding de utilizadores com status=left
+offboard_users() {
+    if [[ ${#EMP_IDS[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    local emp_id
+    for emp_id in "${EMP_IDS[@]}"; do
+        if [[ "${EMP_STATUS["$emp_id"]}" != "left" ]]; then
+            continue
+        fi
+
+        local username="${EXISTING_EMP_USER["$emp_id"]:-}"
+
+        # Passo 3.1: status=left sem conta Linux existente -> não faz nada
+        if [[ -z "$username" ]] || ! id "$username" >/dev/null 2>&1; then
+            continue
+        fi
+
+        # Passo 3.2: status=left com conta Linux existente -> offboarding completo e seguro
+        local today home_dir archive_path
+        today="$(date '+%Y-%m-%d')"
+        home_dir="$(getent passwd "$username" | cut -d: -f6)"
+        archive_path="${ARCHIVE_DIR}/${username}_${emp_id}_${today}.tar.gz"
+
+        # 1. Bloquear a conta e terminar sessões/processos ativos antes de mexer em ficheiros
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            # usermod -L bloqueia a password; chage -E 0 expira a conta (impede também login por chave SSH)
+            usermod -L "$username"
+            chage -E 0 "$username"
+            # Termina processos do utilizador (|| true evita abortar com set -e se não houver processos ativos)
+            pkill -TERM -u "$username" 2>/dev/null || true
+            sleep 1
+            pkill -KILL -u "$username" 2>/dev/null || true
+        fi
+        log_change "Locked account and terminated active sessions for '$username' ($emp_id)"
+
+        # 2. Arquivar pasta home em /srv/archive/<username>_<id>_<YYYY-MM-DD>.tar.gz (só root lê) e validar integridade
+        if [[ -n "$home_dir" && -d "$home_dir" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                # Garante que /srv/archive existe e só é acessível por root (0700)
+                mkdir -p "$ARCHIVE_DIR"
+                chown root:root "$ARCHIVE_DIR"
+                chmod 0700 "$ARCHIVE_DIR"
+
+                # Cria o .tar.gz relativo ao diretório pai da home para evitar caminhos absolutos dentro do tar
+                tar -czf "$archive_path" -C "$(dirname "$home_dir")" "$(basename "$home_dir")"
+                chown root:root "$archive_path"
+                chmod 0600 "$archive_path"
+
+                # Verifica integridade do gzip e da tabela de conteúdos do tar antes de apagar qualquer ficheiro
+                if ! gzip -t "$archive_path" || ! tar -tzf "$archive_path" >/dev/null 2>&1; then
+                    fatal "Archive integrity check failed for '$archive_path'; aborting offboarding of '$username'"
+                fi
+            fi
+            log_change "Archived home '$home_dir' to '$archive_path' (verified)"
+        fi
+
+        # 3. Mudar o dono dos ficheiros do utilizador em /srv/company para root (mantendo o grupo original)
+        if [[ -d "$COMPANY_DIR" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                # chown -h root (sem :grupo) altera apenas o owner e preserva o grupo; -h não segue symlinks
+                find "$COMPANY_DIR" -user "$username" -exec chown -h root {} +
+            fi
+            log_change "Reassigned files owned by '$username' in '$COMPANY_DIR' to root (group preserved)"
+        fi
+
+        # 4. Garantir que o username fica no histórico persistente (nunca reutilizar) e remover crontab, conta e home
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            record_used_username "$username"
+            # || true evita falha caso o utilizador não tenha nenhuma crontab configurada
+            crontab -r -u "$username" 2>/dev/null || true
+            # userdel -r remove a conta e a home; se falhar por não haver mail spool/home, garante remoção da conta
+            userdel -r "$username" 2>/dev/null || userdel "$username"
+        fi
+        log_change "Removed crontab, account, and home for '$username' ($emp_id)"
+    done
+}
+
+# Passo 3.3: Deteta utilizadores geridos ((E...) no GECOS) que desapareceram do CSV sem status=left
+warn_missing_users() {
+    if [[ ${#EXISTING_EMP_USER[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    local emp_id
+    for emp_id in "${!EXISTING_EMP_USER[@]}"; do
+        # Se o employee_id existe no sistema mas não aparece no CSV atual, apenas avisa (não remove)
+        if [[ -z "${EMP_STATUS["$emp_id"]:-}" ]]; then
+            local username="${EXISTING_EMP_USER["$emp_id"]}"
+            echo "Warning: Managed user '$username' ($emp_id) is missing from CSV without status=left; account NOT removed." >&2
+        fi
+    done
+}
+
 main() {
     parse_args "$@"
     check_pre_reqs
@@ -859,6 +958,8 @@ main() {
     ensure_groups
     ensure_users
     ensure_sudo_access
+    offboard_users
+    warn_missing_users
 
     # Se nenhuma alteração foi feita (ou prevista em --dry-run), informa o utilizador
     if [[ "$CHANGES_MADE" -eq 0 ]]; then

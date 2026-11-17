@@ -1,0 +1,7 @@
+2026-10-30T09:00:00.000000+00:00 srv sshd[9]: Accepted publickey for alice from 192.0.2.50 port 22 ssh2: ED25519 SHA256:x
+2026-10-30T10:00:00.000000+00:00 srv sshd[9]: Failed password for alice from 192.0.2.50 port 22 ssh2
+2026-10-30T10:00:10.000000+00:00 srv sshd[9]: Failed password for alice from 192.0.2.50 port 22 ssh2
+2026-10-30T10:00:20.000000+00:00 srv sshd[9]: Failed password for alice from 192.0.2.50 port 22 ssh2
+2026-10-30T10:00:30.000000+00:00 srv sshd[9]: Failed password for alice from 192.0.2.50 port 22 ssh2
+2026-10-30T10:00:40.000000+00:00 srv sshd[9]: Accepted password for alice from 192.0.2.50 port 22 ssh2
+2026-10-30T11:00:00.000000+00:00 srv sshd[9]: Accepted password for bob from 192.0.2.60 port 22 ssh2

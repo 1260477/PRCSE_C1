@@ -21,7 +21,9 @@ EVENTS_FILE=""
 # Resultados das deteções, uma linha CSV por elemento (preenchidos pelas detect_*,
 # lidos por print_report). Vírgula como separador: não aparece em timestamps nem
 # em usernames Linux, e a lista de usernames (com espaços) fica num só campo.
-# BRUTE_RESULTS: ip,first_attempt,last_attempt,failures,top_usernames
+# BRUTE_RESULTS: ip,first_attempt,last_attempt,failures,top_usernames,successes
+#   successes: "user@timestamp" de cada login com sucesso do IP, separados por espaço
+#   (vazio se não houve nenhum)
 BRUTE_RESULTS=()
 
 # Mostra as instruções de utilização do script
@@ -187,16 +189,21 @@ read_logs() {
 
 # Secção 3.2: deteta IPs com >= BRUTE_THRESHOLD falhas de password numa janela de BRUTE_WINDOW minutos
 detect_brute_force() {
-    # 1.º awk: das linhas "Failed password" imprime "IP timestamp username".
+    # 1.º awk: das linhas "Failed password" e "Accepted password/publickey" imprime
+    #   "IP timestamp username tipo" (tipo = fail ou success).
     #   O IP é o campo a seguir a "from" (a coluna muda com/sem "invalid user")
     #   e o username é o campo antes de "from".
     # sort: agrupa por IP (-k1,1 = só a 1.ª coluna). -s (estável) mantém a ordem
     #   original dentro de cada IP, que já é cronológica (EVENTS_FILE está ordenado).
-    # 2.º awk: janela deslizante, um IP de cada vez.
+    # 2.º awk: janela deslizante sobre as falhas, um IP de cada vez; os sucessos
+    #   são só guardados para o output.
     # mapfile: guarda cada linha do output do pipeline num elemento de BRUTE_RESULTS.
     #   Usa-se "< <(...)" e não "pipeline | mapfile": num pipe o mapfile correria
     #   num subshell e o array global ficaria vazio.
-    mapfile -t BRUTE_RESULTS < <(awk '/Failed password/ {
+    mapfile -t BRUTE_RESULTS < <(awk '/Failed password/ || /Accepted (password|publickey) for/ {
+        type = "fail"
+        if (/Accepted (password|publickey) for/)
+            type = "success"
         for (i = 1; i <= NF; i++) {
             if ($i == "from") {
                 user = $(i-1)
@@ -204,7 +211,7 @@ detect_brute_force() {
                 # por isso o campo antes de "from" seria a palavra "user" da mensagem
                 if ($(i-2) == "invalid" && $(i-1) == "user")
                     user = "<empty>"
-                print $(i+1), $1, user
+                print $(i+1), $1, user, type
             }
         }
     }' "$EVENTS_FILE" \
@@ -240,7 +247,7 @@ detect_brute_force() {
         # Fecha o IP anterior: se foi detetado, imprime-o numa linha CSV
         function report() {
             if (detected)
-                print prev_ip "," first_ts "," last_ts "," k "," top_users(3)
+                print prev_ip "," first_ts "," last_ts "," k "," top_users(3) "," successes
         }
 
         {
@@ -250,16 +257,29 @@ detect_brute_force() {
                 prev_ip = $1
                 k = 0
                 detected = 0
-                first_ts = $2            # primeira tentativa (texto original, para o output)
+                successes = ""
                 # Ao contrário de t[k], a chave aqui é o username: sem limpar, os
                 # usernames do IP anterior somavam-se aos deste
                 delete users
             }
 
+            # Login com sucesso: guarda "user@timestamp" e passa à linha seguinte,
+            # para não contar como falha (não entra em k, t[k] nem users)
+            if ($4 == "success") {
+                if (successes != "")
+                    successes = successes " "
+                successes = successes $3 "@" $2
+                next
+            }
+
             users[$3]++                  # tentativas por username, só deste IP
             k++                          # número desta falha dentro do IP
             t[k] = to_epoch($2)          # tempo da falha k, em segundos
-            last_ts = $2                 # última tentativa vista até agora
+            # Primeira falha do IP (texto original, para o output). Fica aqui e não
+            # na mudança de IP porque o primeiro evento do IP pode ser um sucesso
+            if (k == 1)
+                first_ts = $2
+            last_ts = $2                 # última falha vista até agora
 
             # Janela deslizante: o bloco de N falhas que termina na falha k
             # começa na falha k - N + 1, que só existe quando k >= N
@@ -274,20 +294,34 @@ detect_brute_force() {
 
 # Imprime o relatório a partir dos arrays de resultados das detect_*
 print_report() {
-    local line ip first last failures users
+    local line ip first last failures users successes login
+    local logins=()
 
     echo "=== Brute force (>= $BRUTE_THRESHOLD failed passwords in $BRUTE_WINDOW min) ==="
     if [[ "${#BRUTE_RESULTS[@]}" -eq 0 ]]; then
         echo "No brute force attacks detected."
     else
         for line in "${BRUTE_RESULTS[@]}"; do
-            # IFS=, só para este read: parte a linha CSV nos 5 campos
-            IFS=, read -r ip first last failures users <<< "$line"
+            # IFS=, só para este read: parte a linha CSV nos 6 campos
+            IFS=, read -r ip first last failures users successes <<< "$line"
             echo "IP: $ip"
             echo "  First attempt: $first"
             echo "  Last attempt:  $last"
             echo "  Failures:      $failures"
             echo "  Top usernames: $users"
+
+            if [[ -z "$successes" ]]; then
+                echo "  Successful logins: none"
+            else
+                echo "  Successful logins:"
+                # read -a: parte a lista (separada por espaços) num array, um login por elemento
+                read -r -a logins <<< "$successes"
+                for login in "${logins[@]}"; do
+                    # login = "user@timestamp": %%@* tira de "@" até ao fim (fica o user),
+                    # #*@ tira do início até "@" (fica o timestamp)
+                    echo "    ${login%%@*} at ${login#*@}"
+                done
+            fi
         done
     fi
 }

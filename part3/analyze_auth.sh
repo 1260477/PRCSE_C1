@@ -181,14 +181,23 @@ read_logs() {
 
 # Secção 3.2: deteta IPs com >= BRUTE_THRESHOLD falhas de password numa janela de BRUTE_WINDOW minutos
 detect_brute_force() {
-    # 1.º awk: das linhas "Failed password" imprime "IP timestamp".
-    #   O IP é o campo a seguir a "from" (a coluna muda com/sem "invalid user").
+    # 1.º awk: das linhas "Failed password" imprime "IP timestamp username".
+    #   O IP é o campo a seguir a "from" (a coluna muda com/sem "invalid user")
+    #   e o username é o campo antes de "from".
     # sort: agrupa por IP (-k1,1 = só a 1.ª coluna). -s (estável) mantém a ordem
     #   original dentro de cada IP, que já é cronológica (EVENTS_FILE está ordenado).
     # 2.º awk: janela deslizante, um IP de cada vez.
     awk '/Failed password/ {
-        for (i = 1; i <= NF; i++)
-            if ($i == "from") print $(i+1), $1
+        for (i = 1; i <= NF; i++) {
+            if ($i == "from") {
+                user = $(i-1)
+                # "invalid user  from": username vazio. O awk junta os dois espaços,
+                # por isso o campo antes de "from" seria a palavra "user" da mensagem
+                if ($(i-2) == "invalid" && $(i-1) == "user")
+                    user = "<empty>"
+                print $(i+1), $1, user
+            }
+        }
     }' "$EVENTS_FILE" \
     | LC_ALL=C sort -s -k1,1 \
     | TZ=UTC awk -v n="$BRUTE_THRESHOLD" -v window="$((BRUTE_WINDOW * 60))" '
@@ -200,10 +209,27 @@ detect_brute_force() {
             return mktime(ts)
         }
 
+        # Devolve os "top" usernames mais tentados do IP atual, no formato "user(N) ..."
+        # Procura o máximo, guarda-o e remove-o do array; repete "top" vezes
+        function top_users(top,    list, j, u, best) {
+            list = ""
+            for (j = 1; j <= top; j++) {
+                best = ""
+                for (u in users)
+                    if (best == "" || users[u] > users[best])
+                        best = u
+                if (best == "")
+                    break                # já não há mais usernames
+                list = list " " best "(" users[best] ")"
+                delete users[best]
+            }
+            return list
+        }
+
         # Fecha o IP anterior: se foi detetado, reporta-o
         function report() {
             if (detected)
-                print prev_ip, first_ts, last_ts, k
+                print prev_ip, first_ts, last_ts, k top_users(3)
         }
 
         {
@@ -214,8 +240,12 @@ detect_brute_force() {
                 k = 0
                 detected = 0
                 first_ts = $2            # primeira tentativa (texto original, para o output)
+                # Ao contrário de t[k], a chave aqui é o username: sem limpar, os
+                # usernames do IP anterior somavam-se aos deste
+                delete users
             }
 
+            users[$3]++                  # tentativas por username, só deste IP
             k++                          # número desta falha dentro do IP
             t[k] = to_epoch($2)          # tempo da falha k, em segundos
             last_ts = $2                 # última tentativa vista até agora

@@ -12,6 +12,10 @@ SPRAY_THRESHOLD=5    # -s: usernames distintos em 60 min para password spray
 FAIL_THRESHOLD=5     # -f: falhas antes de um login com sucesso
 TOP_N=10             # -t: quantos IPs/usernames mostrar nos tops
 
+# Valores fixos do enunciado (3.3), sem opção na linha de comandos
+readonly SPRAY_WINDOW=60   # janela do password spray, em minutos
+readonly SPRAY_MAX_AVG=3   # máximo de tentativas por username, em média
+
 # Ficheiros de log recebidos na linha de comandos (plain ou .gz, qualquer ordem)
 LOG_FILES=()
 
@@ -25,6 +29,9 @@ EVENTS_FILE=""
 #   successes: "user@timestamp" de cada login com sucesso do IP, separados por espaço
 #   (vazio se não houve nenhum)
 BRUTE_RESULTS=()
+# SPRAY_RESULTS: ip,first_attempt,last_attempt,num_usernames,existing,non_existing
+#   existing / non_existing: usernames separados por espaço, pela ordem da 1.ª tentativa
+SPRAY_RESULTS=()
 
 # Mostra as instruções de utilização do script
 usage() {
@@ -292,6 +299,103 @@ detect_brute_force() {
     ')
 }
 
+# Secção 3.3: deteta IPs que tentam >= SPRAY_THRESHOLD usernames diferentes em 60 minutos,
+# com no máximo 3 tentativas por username em média
+detect_password_spray() {
+    # 1.º awk: das linhas "Failed password" imprime "IP timestamp username estado".
+    #   estado = invalid se a linha diz "for invalid user" (o username não existe
+    #   no servidor), valid caso contrário. IP e username encontram-se como no brute force.
+    # sort: agrupa por IP mantendo a ordem cronológica (igual ao brute force).
+    # 2.º awk: janela deslizante de SPRAY_WINDOW minutos, um IP de cada vez.
+    mapfile -t SPRAY_RESULTS < <(awk '/Failed password/ {
+        status = "valid"
+        if (/Failed password for invalid user /)
+            status = "invalid"
+        for (i = 1; i <= NF; i++) {
+            if ($i == "from") {
+                user = $(i-1)
+                # "invalid user  from": username vazio (ver detect_brute_force)
+                if ($(i-2) == "invalid" && $(i-1) == "user")
+                    user = "<empty>"
+                print $(i+1), $1, user, status
+            }
+        }
+    }' "$EVENTS_FILE" \
+    | LC_ALL=C sort -s -k1,1 \
+    | TZ=UTC awk -v n="$SPRAY_THRESHOLD" -v window="$((SPRAY_WINDOW * 60))" \
+                 -v max_avg="$SPRAY_MAX_AVG" '
+        # Converte o timestamp ISO 8601 em segundos (igual ao detect_brute_force)
+        function to_epoch(ts) {
+            ts = substr(ts, 1, 19)
+            gsub(/[-T:]/, " ", ts)
+            return mktime(ts)
+        }
+
+        # Fecha o IP anterior: se foi detetado, imprime-o numa linha CSV
+        function report() {
+            if (detected)
+                print prev_ip "," first_ts "," last_ts "," n_users "," existing "," non_existing
+        }
+
+        {
+            # Começa um IP novo: fecha o anterior e reinicia o estado
+            if ($1 != prev_ip) {
+                report()
+                prev_ip = $1
+                k = 0                    # número da falha atual dentro do IP
+                left = 1                 # número da falha mais antiga ainda na janela
+                distinct = 0             # usernames diferentes dentro da janela
+                detected = 0
+                n_users = 0              # usernames diferentes em toda a atividade do IP
+                existing = ""
+                non_existing = ""
+                delete in_window         # tentativas por username, só dentro da janela
+                delete seen              # usernames já vistos neste IP (para as listas)
+            }
+
+            k++
+            t[k] = to_epoch($2)          # tempo da falha k, em segundos
+            u[k] = $3                    # username da falha k (para saber quem sai da janela)
+            if (k == 1)
+                first_ts = $2
+            last_ts = $2
+
+            # Listas para o output: cada username entra uma vez, na 1.ª tentativa,
+            # na lista de existentes ou de não existentes
+            if (!($3 in seen)) {
+                seen[$3] = 1
+                n_users++
+                if ($4 == "valid")
+                    existing = existing (existing == "" ? "" : " ") $3
+                else
+                    non_existing = non_existing (non_existing == "" ? "" : " ") $3
+            }
+
+            # A falha k entra na janela: se o username ainda não estava lá, é mais um diferente
+            in_window[$3]++
+            if (in_window[$3] == 1)
+                distinct++
+
+            # Saem pela esquerda as falhas a mais de SPRAY_WINDOW minutos da atual.
+            # while e não if: podem ter de sair várias de uma vez
+            while (t[k] - t[left] > window) {
+                in_window[u[left]]--
+                if (in_window[u[left]] == 0)
+                    distinct--           # já não há nenhuma tentativa deste username na janela
+                left++
+            }
+
+            # >= N usernames diferentes e média de tentativas por username <= max_avg.
+            # (k - left + 1) / distinct <= max_avg, escrito sem divisão (distinct >= 1)
+            if (distinct >= n && (k - left + 1) <= max_avg * distinct)
+                detected = 1
+        }
+
+        # O último IP não tem nenhum IP a seguir que o feche
+        END { report() }
+    ')
+}
+
 # Imprime o relatório a partir dos arrays de resultados das detect_*
 print_report() {
     local line ip first last failures users successes login
@@ -324,6 +428,23 @@ print_report() {
             fi
         done
     fi
+
+    local num_users existing non_existing
+
+    echo
+    echo "=== Password spray (>= $SPRAY_THRESHOLD usernames in $SPRAY_WINDOW min, <= $SPRAY_MAX_AVG attempts per username on average) ==="
+    if [[ "${#SPRAY_RESULTS[@]}" -eq 0 ]]; then
+        echo "No password spray attacks detected."
+    else
+        for line in "${SPRAY_RESULTS[@]}"; do
+            IFS=, read -r ip first last num_users existing non_existing <<< "$line"
+            echo "IP: $ip"
+            echo "  Period:    $first -> $last"
+            echo "  Usernames: $num_users"
+            echo "  Existing on the server:     ${existing:-none}"
+            echo "  Not existing on the server: ${non_existing:-none}"
+        done
+    fi
 }
 
 main() {
@@ -331,6 +452,7 @@ main() {
     check_pre_reqs
     read_logs
     detect_brute_force
+    detect_password_spray
     print_report
 
     echo "TODO: implement analyze_auth.sh" >&2

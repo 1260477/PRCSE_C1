@@ -181,7 +181,54 @@ read_logs() {
 
 # Secção 3.2: deteta IPs com >= BRUTE_THRESHOLD falhas de password numa janela de BRUTE_WINDOW minutos
 detect_brute_force() {
-    :   # TODO: por implementar
+    # 1.º awk: das linhas "Failed password" imprime "IP timestamp".
+    #   O IP é o campo a seguir a "from" (a coluna muda com/sem "invalid user").
+    # sort: agrupa por IP (-k1,1 = só a 1.ª coluna). -s (estável) mantém a ordem
+    #   original dentro de cada IP, que já é cronológica (EVENTS_FILE está ordenado).
+    # 2.º awk: janela deslizante, um IP de cada vez.
+    awk '/Failed password/ {
+        for (i = 1; i <= NF; i++)
+            if ($i == "from") print $(i+1), $1
+    }' "$EVENTS_FILE" \
+    | LC_ALL=C sort -s -k1,1 \
+    | TZ=UTC awk -v n="$BRUTE_THRESHOLD" -v window="$((BRUTE_WINDOW * 60))" '
+        # Converte "2026-10-30T14:05:42.527481+00:00" em segundos desde 1970 (epoch).
+        # mktime espera "YYYY MM DD HH MM SS"; TZ=UTC evita depender do fuso da máquina.
+        function to_epoch(ts) {
+            ts = substr(ts, 1, 19)       # "2026-10-30T14:05:42" (sem fração nem fuso)
+            gsub(/[-T:]/, " ", ts)       # "2026 10 30 14 05 42"
+            return mktime(ts)
+        }
+
+        # Fecha o IP anterior: se foi detetado, reporta-o
+        function report() {
+            if (detected)
+                print prev_ip, first_ts, last_ts, k
+        }
+
+        {
+            # Começa um IP novo: fecha o anterior e reinicia o estado
+            if ($1 != prev_ip) {
+                report()
+                prev_ip = $1
+                k = 0
+                detected = 0
+                first_ts = $2            # primeira tentativa (texto original, para o output)
+            }
+
+            k++                          # número desta falha dentro do IP
+            t[k] = to_epoch($2)          # tempo da falha k, em segundos
+            last_ts = $2                 # última tentativa vista até agora
+
+            # Janela deslizante: o bloco de N falhas que termina na falha k
+            # começa na falha k - N + 1, que só existe quando k >= N
+            if (k >= n && t[k] - t[k - n + 1] <= window)
+                detected = 1
+        }
+
+        # O último IP não tem nenhum IP a seguir que o feche
+        END { report() }
+    '
 }
 
 main() {

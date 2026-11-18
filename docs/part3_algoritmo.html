@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Algoritmo analyze_auth.sh</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: uma coluna estreita que segue o fluxo dos dados de cima para baixo, como um pipeline de shell */
+:root {
+  --bg: #f6f7f5;
+  --panel: #ffffff;
+  --fg: #1c2321;
+  --muted: #5d6a66;
+  --line: #d3d9d6;
+  --accent: #1f7a5c;       /* verde terminal */
+  --accent-soft: #e3f1eb;
+  --file: #8a5a14;         /* ficheiros temporários */
+  --file-soft: #f6ecd9;
+  --fail: #b8432f;
+  --ok: #1f7a5c;
+  --u1: #3b6fb6; --u2: #b8432f; --u3: #8a5a14; --u4: #7b4fa8; --u5: #1f7a5c;
+  --ghost: #b9c2bf;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131816; --panel: #1b2220; --fg: #e4ebe8; --muted: #9aa8a3; --line: #2f3a37;
+    --accent: #5cc79f; --accent-soft: #1d3a30; --file: #e0b062; --file-soft: #3a2f1c;
+    --fail: #ef7d68; --ok: #5cc79f;
+    --u1: #7fa8e8; --u2: #ef7d68; --u3: #e0b062; --u4: #b996e3; --u5: #5cc79f;
+    --ghost: #4a5653; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131816; --panel: #1b2220; --fg: #e4ebe8; --muted: #9aa8a3; --line: #2f3a37;
+  --accent: #5cc79f; --accent-soft: #1d3a30; --file: #e0b062; --file-soft: #3a2f1c;
+  --fail: #ef7d68; --ok: #5cc79f;
+  --u1: #7fa8e8; --u2: #ef7d68; --u3: #e0b062; --u4: #b996e3; --u5: #5cc79f;
+  --ghost: #4a5653; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 56px;
+}
+main { max-width: 920px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font-size: 1.9rem; font-weight: 700; }
+h2 { font-size: 1.25rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+.lead { color: var(--muted); }
+.eyebrow { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+header { display: grid; gap: 8px; }
+section { display: grid; gap: 16px; }
+
+/* Pipeline */
+.flow { display: grid; gap: 0; }
+.stage {
+  display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: start;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+}
+.stage > * { min-width: 0; }
+.stage .fn { font-family: var(--font-mono); font-weight: 600; color: var(--accent); font-size: 0.9rem; word-break: break-word; }
+.stage .what { display: grid; gap: 6px; }
+.stage .cmd { font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); overflow-x: auto; white-space: nowrap; }
+.file {
+  justify-self: center; display: inline-flex; gap: 8px; align-items: center;
+  background: var(--file-soft); color: var(--file); border: 1px dashed var(--file);
+  border-radius: 6px; padding: 6px 12px; font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600;
+}
+.arrow { justify-self: center; width: 2px; height: 22px; background: var(--line); position: relative; }
+.arrow::after {
+  content: ""; position: absolute; left: -5px; bottom: -2px;
+  border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--line);
+}
+.fmt { overflow-x: auto; }
+.fmt table { border-collapse: collapse; font-family: var(--font-mono); font-size: 0.78rem; min-width: 560px; }
+.fmt th, .fmt td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; white-space: nowrap; }
+.fmt th { background: var(--accent-soft); color: var(--fg); font-weight: 600; }
+.fmt td.n { color: var(--muted); }
+
+.detects { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.det { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 8px; align-content: start; }
+.det .tag { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+.det .fn { font-family: var(--font-mono); font-weight: 600; color: var(--accent); font-size: 0.82rem; word-break: break-word; }
+.det ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.88rem; }
+.det .out { font-family: var(--font-mono); font-size: 0.75rem; background: var(--accent-soft); border-radius: 4px; padding: 6px 8px; overflow-x: auto; white-space: nowrap; }
+
+/* Janelas */
+.win { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 12px; }
+.win .head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+.win pre { margin: 0; font-family: var(--font-mono); font-size: 0.82rem; background: var(--accent-soft); padding: 8px 10px; border-radius: 6px; overflow-x: auto; }
+.svgwrap { overflow-x: auto; }
+.svgwrap svg { display: block; width: 100%; min-width: 560px; height: auto; }
+svg text { font-family: var(--font-mono); font-size: 12px; fill: var(--fg); }
+svg .muted { fill: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+@media (max-width: 720px) {
+  .stage { grid-template-columns: 1fr; gap: 6px; }
+  .detects { grid-template-columns: 1fr; }
+  h1 { font-size: 1.5rem; }
+}
+</style>
+</head>
+<body>
+
+<main>
+  <header>
+    <div class="eyebrow">PRCSE C1 · Parte 3</div>
+    <h1>Como funciona o analyze_auth.sh</h1>
+    <p class="lead">Os dados passam de cima para baixo. Os logs são lidos e ordenados uma vez, os eventos SSH são extraídos uma vez, e cada deteção só ordena esses eventos e passa por eles com a sua janela deslizante.</p>
+  </header>
+
+  <section aria-labelledby="pipe">
+    <h2 id="pipe">Pipeline</h2>
+    <div class="flow">
+      <div class="stage">
+        <div class="fn">parse_args<br>check_pre_reqs</div>
+        <div class="what">
+          <p>Lê as opções <code>-b -w -s -f -t</code> e valida os ficheiros. Um <code>.gz</code> é reconhecido pelo conteúdo e não pela extensão; um <code>.gz</code> corrompido é ignorado com um aviso.</p>
+          <div class="cmd">LOG_FILES=( auth.log auth.log.1 auth.log.2.gz … )</div>
+        </div>
+      </div>
+      <div class="arrow" aria-hidden="true"></div>
+      <div class="stage">
+        <div class="fn">read_logs</div>
+        <div class="what">
+          <p>Junta todos os ficheiros por qualquer ordem. O timestamp ISO 8601 está no início da linha, por isso um <code>sort</code> da linha inteira dá a ordem cronológica. O <code>uniq</code> remove as linhas repetidas.</p>
+          <div class="cmd">gzip -dc | cat → awk 1 → LC_ALL=C sort → uniq</div>
+        </div>
+      </div>
+      <div class="arrow" aria-hidden="true"></div>
+      <div class="file">EVENTS_FILE · todas as linhas, por ordem cronológica</div>
+      <div class="arrow" aria-hidden="true"></div>
+      <div class="stage">
+        <div class="fn">extract_ssh_events</div>
+        <div class="what">
+          <p>Um só awk lê as linhas <code>Failed password</code> e <code>Accepted password/publickey</code>. O IP é o campo a seguir a <code>from</code> e o user o campo antes. O tempo é convertido com <code>mktime</code> (TZ=UTC), e o awk guarda o IP do 1.º sucesso de cada user.</p>
+          <div class="fmt">
+            <table>
+              <thead><tr><th>$1 ip</th><th>$2 epoch</th><th>$3 timestamp</th><th>$4 user</th><th>$5 type</th><th>$6 status</th><th>$7 usual</th></tr></thead>
+              <tbody>
+                <tr><td>192.0.2.77</td><td>1793309807</td><td>2026-10-29T21:36:47…</td><td>rfaria</td><td>success</td><td>valid</td><td>-</td></tr>
+                <tr><td>203.0.113.45</td><td>1793067186</td><td>2026-10-27T02:13:06…</td><td>admin</td><td>fail</td><td>invalid</td><td>-</td></tr>
+                <tr><td class="n" colspan="7">usual: IP do 1.º sucesso anterior do user (só nos sucessos), ou "-"</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="arrow" aria-hidden="true"></div>
+      <div class="file">SSH_FILE · um evento SSH por linha</div>
+      <div class="arrow" aria-hidden="true"></div>
+      <div class="detects">
+        <div class="det">
+          <div class="tag">3.2 · brute force</div>
+          <div class="fn">detect_brute_force</div>
+          <ol>
+            <li><code>sort -s -k1,1</code>: agrupa por IP</li>
+            <li>awk: janela de <code>-w</code> min, <code>-b</code> falhas</li>
+          </ol>
+          <div class="out">BRUTE_RESULTS[]</div>
+        </div>
+        <div class="det">
+          <div class="tag">3.3 · password spray</div>
+          <div class="fn">detect_password_spray</div>
+          <ol>
+            <li><code>sort -s -k1,1</code>: agrupa por IP</li>
+            <li>awk: janela de 60 min, <code>-s</code> usernames, média ≤ 3</li>
+          </ol>
+          <div class="out">SPRAY_RESULTS[]</div>
+        </div>
+        <div class="det">
+          <div class="tag">3.4 · sucesso após falhas</div>
+          <div class="fn">detect_success_after_failures</div>
+          <ol>
+            <li><code>sort -k1,1</code> → <code>success_window 1</code> (por IP)</li>
+            <li><code>sort -k4,4</code> → <code>success_window 4</code> (por user)</li>
+            <li>awk de junção: chave <code>ip,user,time</code>, motivo <code>both</code></li>
+            <li><code>sort -t, -k3,3</code>: por tempo</li>
+          </ol>
+          <div class="out">SUCCESS_RESULTS[]</div>
+        </div>
+      </div>
+      <div class="arrow" aria-hidden="true"></div>
+      <div class="stage">
+        <div class="fn">print_report</div>
+        <div class="what">
+          <p>Lê cada array com <code>IFS=, read</code> e imprime uma secção por deteção. Quando o array está vazio, imprime uma mensagem explícita, por exemplo <code>No brute force attacks detected.</code></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="win">
+    <h2 id="win">As três janelas deslizantes</h2>
+    <p class="lead">Nas três deteções, o awk vê um grupo de cada vez (um IP ou um user) e os eventos já vêm por ordem cronológica. As falhas são numeradas <code>k = 1, 2, 3…</code> e o tempo de cada uma fica em <code>t[k]</code>.</p>
+
+    <!-- 3.2 -->
+    <div class="win">
+      <div class="head"><h3>3.2 Brute force: N falhas seguidas cabem na janela?</h3><span class="mono" style="color:var(--muted)">exemplo: -b 4 -w 1</span></div>
+      <div class="svgwrap">
+        <svg viewBox="0 0 640 150" role="img" aria-label="Falhas aos 0, 50, 55, 61 e 62 segundos; o bloco das falhas 2 a 5 ocupa 12 segundos, dentro da janela de 60 segundos">
+          <line x1="40" y1="80" x2="610" y2="80" stroke="var(--line)" stroke-width="2"/>
+          <!-- escala: 0s em x=60, 1s = 7px -->
+          <text x="60" y="122" text-anchor="middle" class="muted">0s</text>
+          <text x="410" y="122" text-anchor="middle" class="muted">50s</text>
+          <text x="487" y="122" text-anchor="middle" class="muted">61s</text>
+          <!-- bloco k-N+1 .. k -->
+          <rect x="400" y="52" width="104" height="56" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="452" y="44" text-anchor="middle" fill="var(--accent)">t[5] − t[2] = 12s ≤ 60s</text>
+          <circle cx="60" cy="80" r="7" fill="var(--fail)"/>
+          <circle cx="410" cy="80" r="7" fill="var(--fail)"/>
+          <circle cx="445" cy="80" r="7" fill="var(--fail)"/>
+          <circle cx="487" cy="80" r="7" fill="var(--fail)"/>
+          <circle cx="494" cy="80" r="7" fill="var(--fail)"/>
+          <text x="60" y="64" text-anchor="middle">k=1</text>
+          <text x="410" y="140" text-anchor="middle">k−N+1 = 2</text>
+          <text x="560" y="84" class="muted">k = 5</text>
+        </svg>
+      </div>
+      <pre>if (k &gt;= n &amp;&amp; t[k] - t[k - n + 1] &lt;= window) detected = 1</pre>
+      <p>Basta comparar a falha atual com a que está N−1 posições atrás. Uma janela fixa de 0 a 60 s só teria 3 falhas e deixaria escapar este ataque.</p>
+    </div>
+
+    <!-- 3.3 -->
+    <div class="win">
+      <div class="head"><h3>3.3 Password spray: quantos usernames diferentes há na janela?</h3><span class="mono" style="color:var(--muted)">-s 5, janela 60 min, média ≤ 3</span></div>
+      <div class="svgwrap">
+        <svg viewBox="0 0 640 160" role="img" aria-label="Janela com ponteiro left e k; falhas mais antigas que 60 minutos saem pela esquerda">
+          <line x1="30" y1="80" x2="620" y2="80" stroke="var(--line)" stroke-width="2"/>
+          <rect x="150" y="50" width="430" height="60" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="365" y="42" text-anchor="middle" fill="var(--accent)">60 min antes da falha k</text>
+          <!-- fora -->
+          <circle cx="60" cy="80" r="7" fill="var(--ghost)"/>
+          <circle cx="105" cy="80" r="7" fill="var(--ghost)"/>
+          <text x="82" y="130" text-anchor="middle" class="muted">saíram (left++)</text>
+          <!-- dentro -->
+          <circle cx="175" cy="80" r="7" fill="var(--u1)"/>
+          <circle cx="245" cy="80" r="7" fill="var(--u2)"/>
+          <circle cx="310" cy="80" r="7" fill="var(--u1)"/>
+          <circle cx="380" cy="80" r="7" fill="var(--u3)"/>
+          <circle cx="450" cy="80" r="7" fill="var(--u4)"/>
+          <circle cx="555" cy="80" r="7" fill="var(--u5)"/>
+          <text x="175" y="130" text-anchor="middle">left</text>
+          <text x="555" y="130" text-anchor="middle">k</text>
+          <text x="365" y="150" text-anchor="middle" class="muted">6 tentativas, distinct = 5 → 6 ≤ 3 × 5 ✓</text>
+        </svg>
+      </div>
+      <div class="legend"><span><i class="dot" style="background:var(--u1)"></i>root</span><span><i class="dot" style="background:var(--u2)"></i>alice</span><span><i class="dot" style="background:var(--u3)"></i>admin</span><span><i class="dot" style="background:var(--u4)"></i>test</span><span><i class="dot" style="background:var(--u5)"></i>oracle</span><span><i class="dot" style="background:var(--ghost)"></i>fora da janela</span></div>
+      <pre>while (t[k] - t[left] &gt; window) { in_window[u[left]]--; if (in_window[u[left]] == 0) distinct--; left++ }
+if (distinct &gt;= n &amp;&amp; (k - left + 1) &lt;= max_avg * distinct) detected = 1</pre>
+      <p>Aqui N conta usernames e não falhas, por isso a janela tem duas pontas. <code>in_window[user]</code> conta as tentativas de cada user dentro da janela, e <code>distinct</code> sobe quando um user entra e desce quando sai.</p>
+    </div>
+
+    <!-- 3.4 -->
+    <div class="win">
+      <div class="head"><h3>3.4 Sucesso após falhas: quantas falhas há nos 60 min antes do sucesso?</h3><span class="mono" style="color:var(--muted)">-f 5, TYPO_MAX = 3</span></div>
+      <div class="svgwrap">
+        <svg viewBox="0 0 640 170" role="img" aria-label="Janela de 60 minutos que termina no sucesso; falhas mais antigas saem; falhas do IP habitual até 3 são descontadas">
+          <line x1="30" y1="80" x2="620" y2="80" stroke="var(--line)" stroke-width="2"/>
+          <rect x="140" y="50" width="420" height="60" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="350" y="42" text-anchor="middle" fill="var(--accent)">60 min antes do sucesso</text>
+          <circle cx="70" cy="80" r="7" fill="var(--ghost)"/>
+          <text x="70" y="130" text-anchor="middle" class="muted">saiu</text>
+          <!-- falhas de outro IP -->
+          <circle cx="190" cy="80" r="7" fill="var(--fail)"/>
+          <circle cx="250" cy="80" r="7" fill="var(--fail)"/>
+          <circle cx="310" cy="80" r="7" fill="var(--fail)"/>
+          <!-- falhas do IP habitual -->
+          <circle cx="400" cy="80" r="7" fill="none" stroke="var(--fail)" stroke-width="2"/>
+          <circle cx="450" cy="80" r="7" fill="none" stroke="var(--fail)" stroke-width="2"/>
+          <circle cx="500" cy="80" r="7" fill="none" stroke="var(--fail)" stroke-width="2"/>
+          <!-- sucesso -->
+          <rect x="551" y="71" width="18" height="18" rx="3" fill="var(--ok)"/>
+          <text x="560" y="130" text-anchor="middle">sucesso</text>
+          <text x="560" y="146" text-anchor="middle" class="muted">do IP habitual</text>
+          <text x="250" y="130" text-anchor="middle">3 de outro IP: contam</text>
+          <text x="450" y="130" text-anchor="middle">3 do IP habitual: typo</text>
+          <text x="350" y="166" text-anchor="middle" class="muted">failures = 6 − 3 = 3 &lt; 5 → não é reportado</text>
+        </svg>
+      </div>
+      <div class="legend"><span><i class="dot" style="background:var(--fail)"></i>falha de outro IP</span><span><i class="dot" style="border:2px solid var(--fail)"></i>falha do IP habitual</span><span><i class="dot" style="background:var(--ok);border-radius:2px"></i>login com sucesso</span><span><i class="dot" style="background:var(--ghost)"></i>fora da janela</span></div>
+      <pre>while (left &lt;= k &amp;&amp; $2 - t[left] &gt; window) left++
+failures = k - left + 1
+if ($1 == $7 &amp;&amp; falhas_do_IP_habitual &lt;= typo_max) failures -= falhas_do_IP_habitual
+if (failures &gt;= n) print ip "," user "," time "," failures "," reason</pre>
+      <p>A janela só é calculada quando chega um sucesso, e as falhas ficam só guardadas. A mesma função corre duas vezes, agrupada por IP (coluna 1) e por user (coluna 4). Se as duas vias detetarem o mesmo login, a junção deixa uma só linha com o motivo <code>both</code>.</p>
+    </div>
+  </section>
+</main>
+</body>
+</html>

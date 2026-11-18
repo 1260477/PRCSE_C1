@@ -21,8 +21,19 @@ readonly TYPO_MAX=3        # falhas do IP habitual que ainda são typo (3.4; ass
 # Ficheiros de log recebidos na linha de comandos (plain ou .gz, qualquer ordem)
 LOG_FILES=()
 
-# Ficheiro temporário com os eventos já preparados (criado em read_logs)
+# Ficheiro temporário com todas as linhas dos logs, por ordem cronológica (criado em read_logs)
 EVENTS_FILE=""
+
+# Ficheiro temporário com os eventos SSH já tratados (criado em extract_ssh_events),
+# um por linha, por ordem cronológica, campos separados por espaço:
+#   ip epoch timestamp user type status usual
+#   epoch:     timestamp em segundos desde 1970 (para as janelas)
+#   timestamp: texto original ISO 8601 (para o output)
+#   user:      username tentado ("<empty>" se vazio)
+#   type:      fail ("Failed password") ou success ("Accepted password/publickey")
+#   status:    invalid se a linha diz "for invalid user" (não existe no servidor), senão valid
+#   usual:     só nos sucessos: IP do 1.º login com sucesso anterior do user ("-" se não houve)
+SSH_FILE=""
 
 # Resultados das deteções, uma linha CSV por elemento (preenchidos pelas detect_*,
 # lidos por print_report). Vírgula como separador: não aparece em timestamps nem
@@ -169,9 +180,10 @@ read_logs() {
     # mktemp cria um ficheiro com nome único, de forma atómica e com permissões 600
     EVENTS_FILE="$(mktemp)" || fatal "Could not create temporary file."
 
-    # Apaga o ficheiro temporário sempre que o script termina (normal, erro ou Ctrl+C).
-    # As aspas simples adiam a expansão de $EVENTS_FILE para o momento da saída.
-    trap 'rm -f "$EVENTS_FILE"' EXIT
+    # Apaga os ficheiros temporários sempre que o script termina (normal, erro ou Ctrl+C).
+    # As aspas simples adiam a expansão das variáveis para o momento da saída, por isso
+    # SSH_FILE (criado mais tarde, em extract_ssh_events) também é apagado.
+    trap 'rm -f "$EVENTS_FILE" "$SSH_FILE"' EXIT
 
     # Junta o conteúdo de todos os ficheiros no ficheiro temporário.
     # O gzip é detetado pelo conteúdo (is_gzip), não pela extensão (assunção 1).
@@ -202,44 +214,70 @@ read_logs() {
     fi
 }
 
-# Secção 3.2: deteta IPs com >= BRUTE_THRESHOLD falhas de password numa janela de BRUTE_WINDOW minutos
-detect_brute_force() {
-    # 1.º awk: das linhas "Failed password" e "Accepted password/publickey" imprime
-    #   "IP timestamp username tipo" (tipo = fail ou success).
-    #   O IP é o campo a seguir a "from" (a coluna muda com/sem "invalid user")
-    #   e o username é o campo antes de "from".
-    # sort: agrupa por IP (-k1,1 = só a 1.ª coluna). -s (estável) mantém a ordem
-    #   original dentro de cada IP, que já é cronológica (EVENTS_FILE está ordenado).
-    # 2.º awk: janela deslizante sobre as falhas, um IP de cada vez; os sucessos
-    #   são só guardados para o output.
-    # mapfile: guarda cada linha do output do pipeline num elemento de BRUTE_RESULTS.
-    #   Usa-se "< <(...)" e não "pipeline | mapfile": num pipe o mapfile correria
-    #   num subshell e o array global ficaria vazio.
-    mapfile -t BRUTE_RESULTS < <(awk '/Failed password/ || /Accepted (password|publickey) for/ {
-        type = "fail"
-        if (/Accepted (password|publickey) for/)
-            type = "success"
-        for (i = 1; i <= NF; i++) {
-            if ($i == "from") {
-                user = $(i-1)
-                # "invalid user  from": username vazio. O awk junta os dois espaços,
-                # por isso o campo antes de "from" seria a palavra "user" da mensagem
-                if ($(i-2) == "invalid" && $(i-1) == "user")
-                    user = "<empty>"
-                print $(i+1), $1, user, type
-            }
-        }
-    }' "$EVENTS_FILE" \
-    | LC_ALL=C sort -s -k1,1 \
-    | TZ=UTC awk -v n="$BRUTE_THRESHOLD" -v window="$((BRUTE_WINDOW * 60))" '
+# Extrai uma única vez os eventos SSH de EVENTS_FILE para SSH_FILE (formato no topo).
+# Todas as detect_* leem SSH_FILE, por isso o parsing das linhas e a conversão do
+# tempo estão só aqui.
+extract_ssh_events() {
+    SSH_FILE="$(mktemp)" || fatal "Could not create temporary file."
+
+    # Das linhas "Failed password" e "Accepted password/publickey":
+    #   IP = campo a seguir a "from" (a coluna muda com/sem "invalid user")
+    #   username = campo antes de "from"
+    # TZ=UTC: o mktime não depende do fuso horário da máquina
+    TZ=UTC awk '
         # Converte "2026-10-30T14:05:42.527481+00:00" em segundos desde 1970 (epoch).
-        # mktime espera "YYYY MM DD HH MM SS"; TZ=UTC evita depender do fuso da máquina.
+        # mktime espera "YYYY MM DD HH MM SS"
         function to_epoch(ts) {
             ts = substr(ts, 1, 19)       # "2026-10-30T14:05:42" (sem fração nem fuso)
             gsub(/[-T:]/, " ", ts)       # "2026 10 30 14 05 42"
             return mktime(ts)
         }
 
+        /Failed password/ || /Accepted (password|publickey) for/ {
+            type = "fail"
+            if (/Accepted (password|publickey) for/)
+                type = "success"
+            status = "valid"
+            if (/Failed password for invalid user /)
+                status = "invalid"
+
+            for (i = 1; i <= NF; i++) {
+                if ($i == "from") {
+                    ip = $(i+1)
+                    user = $(i-1)
+                    # "invalid user  from": username vazio. O awk junta os dois espaços,
+                    # por isso o campo antes de "from" seria a palavra "user" da mensagem
+                    if ($(i-2) == "invalid" && $(i-1) == "user")
+                        user = "<empty>"
+
+                    # IP habitual: EVENTS_FILE está por ordem cronológica, por isso
+                    # o 1.º sucesso de cada user que aparece é o mais antigo
+                    usual = "-"
+                    if (type == "success") {
+                        if (user in first_ip)
+                            usual = first_ip[user]   # já houve um sucesso antes deste
+                        else
+                            first_ip[user] = ip      # 1.º sucesso: passa a ser o IP habitual
+                    }
+
+                    print ip, to_epoch($1), $1, user, type, status, usual
+                }
+            }
+        }
+    ' "$EVENTS_FILE" > "$SSH_FILE"
+}
+
+# Secção 3.2: deteta IPs com >= BRUTE_THRESHOLD falhas de password numa janela de BRUTE_WINDOW minutos
+detect_brute_force() {
+    # sort: agrupa por IP (-k1,1 = só a 1.ª coluna). -s (estável) mantém a ordem
+    #   original dentro de cada IP, que já é cronológica (SSH_FILE está ordenado).
+    # awk: janela deslizante sobre as falhas, um IP de cada vez; os sucessos
+    #   são só guardados para o output.
+    # mapfile: guarda cada linha do output do pipeline num elemento de BRUTE_RESULTS.
+    #   Usa-se "< <(...)" e não "pipeline | mapfile": num pipe o mapfile correria
+    #   num subshell e o array global ficaria vazio.
+    mapfile -t BRUTE_RESULTS < <(LC_ALL=C sort -s -k1,1 "$SSH_FILE" \
+    | awk -v n="$BRUTE_THRESHOLD" -v window="$((BRUTE_WINDOW * 60))" '
         # Devolve os "top" usernames mais tentados do IP atual, no formato "user(N) ..."
         # Procura o máximo, guarda-o e remove-o do array; repete "top" vezes
         function top_users(top, list, j, u, best) {
@@ -265,6 +303,7 @@ detect_brute_force() {
                 print prev_ip "," first_ts "," last_ts "," k "," top_users(3) "," successes
         }
 
+        # Campos de SSH_FILE: $1 ip, $2 epoch, $3 timestamp, $4 user, $5 type
         {
             # Começa um IP novo: fecha o anterior e reinicia o estado
             if ($1 != prev_ip) {
@@ -280,21 +319,21 @@ detect_brute_force() {
 
             # Login com sucesso: guarda "user@timestamp" e passa à linha seguinte,
             # para não contar como falha (não entra em k, t[k] nem users)
-            if ($4 == "success") {
+            if ($5 == "success") {
                 if (successes != "")
                     successes = successes " "
-                successes = successes $3 "@" $2
+                successes = successes $4 "@" $3
                 next
             }
 
-            users[$3]++                  # tentativas por username, só deste IP
+            users[$4]++                  # tentativas por username, só deste IP
             k++                          # número desta falha dentro do IP
-            t[k] = to_epoch($2)          # tempo da falha k, em segundos
+            t[k] = $2                    # tempo da falha k, em segundos
             # Primeira falha do IP (texto original, para o output). Fica aqui e não
             # na mudança de IP porque o primeiro evento do IP pode ser um sucesso
             if (k == 1)
-                first_ts = $2
-            last_ts = $2                 # última falha vista até agora
+                first_ts = $3
+            last_ts = $3                 # última falha vista até agora
 
             # Janela deslizante: o bloco de N falhas que termina na falha k
             # começa na falha k - N + 1, que só existe quando k >= N
@@ -310,42 +349,20 @@ detect_brute_force() {
 # Secção 3.3: deteta IPs que tentam >= SPRAY_THRESHOLD usernames diferentes em 60 minutos,
 # com no máximo 3 tentativas por username em média
 detect_password_spray() {
-    # 1.º awk: das linhas "Failed password" imprime "IP timestamp username estado".
-    #   estado = invalid se a linha diz "for invalid user" (o username não existe
-    #   no servidor), valid caso contrário. IP e username encontram-se como no brute force.
     # sort: agrupa por IP mantendo a ordem cronológica (igual ao brute force).
-    # 2.º awk: janela deslizante de SPRAY_WINDOW minutos, um IP de cada vez.
-    mapfile -t SPRAY_RESULTS < <(awk '/Failed password/ {
-        status = "valid"
-        if (/Failed password for invalid user /)
-            status = "invalid"
-        for (i = 1; i <= NF; i++) {
-            if ($i == "from") {
-                user = $(i-1)
-                # "invalid user  from": username vazio (ver detect_brute_force)
-                if ($(i-2) == "invalid" && $(i-1) == "user")
-                    user = "<empty>"
-                print $(i+1), $1, user, status
-            }
-        }
-    }' "$EVENTS_FILE" \
-    | LC_ALL=C sort -s -k1,1 \
-    | TZ=UTC awk -v n="$SPRAY_THRESHOLD" -v window="$((SPRAY_WINDOW * 60))" \
-                 -v max_avg="$SPRAY_MAX_AVG" '
-        # Converte o timestamp ISO 8601 em segundos (igual ao detect_brute_force)
-        function to_epoch(ts) {
-            ts = substr(ts, 1, 19)
-            gsub(/[-T:]/, " ", ts)
-            return mktime(ts)
-        }
-
+    # awk: janela deslizante de SPRAY_WINDOW minutos sobre as falhas, um IP de cada vez.
+    mapfile -t SPRAY_RESULTS < <(LC_ALL=C sort -s -k1,1 "$SSH_FILE" \
+    | awk -v n="$SPRAY_THRESHOLD" -v window="$((SPRAY_WINDOW * 60))" \
+          -v max_avg="$SPRAY_MAX_AVG" '
         # Fecha o IP anterior: se foi detetado, imprime-o numa linha CSV
         function report() {
             if (detected)
                 print prev_ip "," first_ts "," last_ts "," n_users "," existing "," non_existing
         }
 
-        {
+        # Campos de SSH_FILE: $1 ip, $2 epoch, $3 timestamp, $4 user, $5 type, $6 status.
+        # Só as falhas interessam: o padrão $5 == "fail" ignora as linhas de sucesso
+        $5 == "fail" {
             # Começa um IP novo: fecha o anterior e reinicia o estado
             if ($1 != prev_ip) {
                 report()
@@ -362,26 +379,26 @@ detect_password_spray() {
             }
 
             k++
-            t[k] = to_epoch($2)          # tempo da falha k, em segundos
-            u[k] = $3                    # username da falha k (para saber quem sai da janela)
+            t[k] = $2                    # tempo da falha k, em segundos
+            u[k] = $4                    # username da falha k (para saber quem sai da janela)
             if (k == 1)
-                first_ts = $2
-            last_ts = $2
+                first_ts = $3
+            last_ts = $3
 
             # Listas para o output: cada username entra uma vez, na 1.ª tentativa,
             # na lista de existentes ou de não existentes
-            if (!($3 in seen)) {
-                seen[$3] = 1
+            if (!($4 in seen)) {
+                seen[$4] = 1
                 n_users++
-                if ($4 == "valid")
-                    existing = existing (existing == "" ? "" : " ") $3
+                if ($6 == "valid")
+                    existing = existing (existing == "" ? "" : " ") $4
                 else
-                    non_existing = non_existing (non_existing == "" ? "" : " ") $3
+                    non_existing = non_existing (non_existing == "" ? "" : " ") $4
             }
 
             # A falha k entra na janela: se o username ainda não estava lá, é mais um diferente
-            in_window[$3]++
-            if (in_window[$3] == 1)
+            in_window[$4]++
+            if (in_window[$4] == 1)
                 distinct++
 
             # Saem pela esquerda as falhas a mais de SPRAY_WINDOW minutos da atual.
@@ -404,59 +421,23 @@ detect_password_spray() {
     ')
 }
 
-# Secção 3.4, passo 1: das linhas "Failed password" e "Accepted password/publickey" imprime
-#   "IP timestamp username tipo habitual" (tipo = fail ou success), como no detect_brute_force.
-#   O IP é o campo a seguir a "from" e o username é o campo antes de "from".
-#   habitual = IP do 1.º login com sucesso anterior desse username ("-" se ainda não
-#   houve nenhum, e sempre "-" nas falhas). EVENTS_FILE está por ordem cronológica,
-#   por isso o 1.º sucesso que aparece é o mais antigo.
-success_events() {
-    awk '/Failed password/ || /Accepted (password|publickey) for/ {
-        type = "fail"
-        if (/Accepted (password|publickey) for/)
-            type = "success"
-        for (i = 1; i <= NF; i++) {
-            if ($i == "from") {
-                user = $(i-1)
-                # "invalid user  from": username vazio (ver detect_brute_force)
-                if ($(i-2) == "invalid" && $(i-1) == "user")
-                    user = "<empty>"
-                usual = "-"
-                if (type == "success") {
-                    if (user in first_ip)
-                        usual = first_ip[user]       # já houve um sucesso antes deste
-                    else
-                        first_ip[user] = $(i+1)      # 1.º sucesso: passa a ser o IP habitual
-                }
-                print $(i+1), $1, user, type, usual
-            }
-        }
-    }' "$EVENTS_FILE"
-}
-
-# Secção 3.4, passo 2: janela deslizante de SUCCESS_WINDOW minutos sobre as falhas,
-#   um grupo de cada vez. $1 = coluna que define o grupo: 1 (IP) ou 3 (username).
+# Secção 3.4: janela deslizante de SUCCESS_WINDOW minutos sobre as falhas, um grupo
+#   de cada vez. $1 = coluna de SSH_FILE que define o grupo: 1 (IP) ou 4 (username).
 #   O input tem de vir agrupado por essa coluna e em ordem cronológica dentro do grupo.
 #   Imprime "ip,user,time,failures,reason" para cada sucesso com >= FAIL_THRESHOLD
 #   falhas do mesmo grupo nos SUCCESS_WINDOW minutos antes; reason = ip ou user.
 #   Typo: se o sucesso vem do IP habitual do user e as falhas na janela vindas desse
 #   IP são <= TYPO_MAX, essas falhas não contam (as de outros IPs contam sempre).
 success_window() {
-    TZ=UTC awk -v col="$1" -v n="$FAIL_THRESHOLD" -v window="$((SUCCESS_WINDOW * 60))" \
+    awk -v col="$1" -v n="$FAIL_THRESHOLD" -v window="$((SUCCESS_WINDOW * 60))" \
         -v typo_max="$TYPO_MAX" '
-        # Converte o timestamp ISO 8601 em segundos (igual ao detect_brute_force)
-        function to_epoch(ts) {
-            ts = substr(ts, 1, 19)
-            gsub(/[-T:]/, " ", ts)
-            return mktime(ts)
-        }
-
         BEGIN {
             reason = "ip"
-            if (col == 3)
+            if (col == 4)
                 reason = "user"
         }
 
+        # Campos de SSH_FILE: $1 ip, $2 epoch, $3 timestamp, $4 user, $5 type, $7 usual
         {
             # Começa um grupo novo (IP ou username): reinicia a janela
             if ($col != prev_group) {
@@ -465,12 +446,10 @@ success_window() {
                 left = 1                 # número da falha mais antiga ainda na janela
             }
 
-            now = to_epoch($2)
-
             # Falha: só é guardada, para contar quando vier um sucesso
-            if ($4 == "fail") {
+            if ($5 == "fail") {
                 k++
-                t[k] = now
+                t[k] = $2
                 ip[k] = $1               # IP da falha k (para o typo)
                 next
             }
@@ -478,15 +457,15 @@ success_window() {
             # Sucesso: saem pela esquerda as falhas a mais de SUCCESS_WINDOW minutos dele.
             # while e não if: podem ter de sair várias de uma vez.
             # left <= k: não passar da última falha (a janela pode ficar vazia)
-            while (left <= k && now - t[left] > window)
+            while (left <= k && $2 - t[left] > window)
                 left++
 
             # Falhas que ficaram na janela = da left à k
             failures = k - left + 1
 
-            # Typo: o sucesso vem do IP habitual ($5) do user. Conta as falhas da
+            # Typo: o sucesso vem do IP habitual ($7) do user. Conta as falhas da
             # janela que vieram desse IP; se forem poucas, tira-as da contagem
-            if ($1 == $5) {
+            if ($1 == $7) {
                 from_usual = 0
                 for (j = left; j <= k; j++)
                     if (ip[j] == $1)
@@ -496,7 +475,7 @@ success_window() {
             }
 
             if (failures >= n)
-                print $1 "," $3 "," $2 "," failures "," reason
+                print $1 "," $4 "," $3 "," failures "," reason
         }
     '
 }
@@ -505,8 +484,8 @@ success_window() {
 # ou do mesmo username nos SUCCESS_WINDOW minutos antes
 detect_success_after_failures() {
     # Corre a janela duas vezes, com o input agrupado de maneiras diferentes:
-    #   sort -k1,1 agrupa por IP, sort -k3,3 agrupa por username. -s (estável) mantém
-    #   a ordem cronológica dentro de cada grupo (EVENTS_FILE já está ordenado).
+    #   sort -k1,1 agrupa por IP, sort -k4,4 agrupa por username. -s (estável) mantém
+    #   a ordem cronológica dentro de cada grupo (SSH_FILE já está ordenado).
     # awk de junção: o mesmo login pode ser detetado pelas duas vias. A chave
     #   "ip,user,time" identifica o login; se aparecer duas vezes fica só uma linha,
     #   com reason = both e o maior número de falhas.
@@ -515,8 +494,8 @@ detect_success_after_failures() {
     #   mesmo motivo do detect_brute_force: num pipe o array ficaria vazio).
     mapfile -t SUCCESS_RESULTS < <(
         {
-            success_events | LC_ALL=C sort -s -k1,1 | success_window 1
-            success_events | LC_ALL=C sort -s -k3,3 | success_window 3
+            LC_ALL=C sort -s -k1,1 "$SSH_FILE" | success_window 1
+            LC_ALL=C sort -s -k4,4 "$SSH_FILE" | success_window 4
         } | awk -F, '
             {
                 key = $1 "," $2 "," $3
@@ -610,6 +589,7 @@ main() {
     parse_args "$@"
     check_pre_reqs
     read_logs
+    extract_ssh_events
     detect_brute_force
     detect_password_spray
     detect_success_after_failures

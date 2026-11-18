@@ -12,9 +12,11 @@ SPRAY_THRESHOLD=5    # -s: usernames distintos em 60 min para password spray
 FAIL_THRESHOLD=5     # -f: falhas antes de um login com sucesso
 TOP_N=10             # -t: quantos IPs/usernames mostrar nos tops
 
-# Valores fixos do enunciado (3.3), sem opção na linha de comandos
+# Valores fixos do enunciado (3.3 e 3.4), sem opção na linha de comandos
 readonly SPRAY_WINDOW=60   # janela do password spray, em minutos
 readonly SPRAY_MAX_AVG=3   # máximo de tentativas por username, em média
+readonly SUCCESS_WINDOW=60 # janela das falhas antes de um login com sucesso, em minutos
+readonly TYPO_MAX=3        # falhas do IP habitual que ainda são typo (3.4; assunção, não vem do enunciado)
 
 # Ficheiros de log recebidos na linha de comandos (plain ou .gz, qualquer ordem)
 LOG_FILES=()
@@ -32,6 +34,12 @@ BRUTE_RESULTS=()
 # SPRAY_RESULTS: ip,first_attempt,last_attempt,num_usernames,existing,non_existing
 #   existing / non_existing: usernames separados por espaço, pela ordem da 1.ª tentativa
 SPRAY_RESULTS=()
+# SUCCESS_RESULTS: ip,user,time,failures_before,reason
+#   uma linha por login com sucesso detetado (o mesmo IP pode aparecer mais de uma vez)
+#   failures_before: falhas nos 60 minutos antes do login, do mesmo IP ou do mesmo user
+#     (se as duas vias detetarem o login, fica o maior dos dois números)
+#   reason: ip, user ou both (por qual das vias foi detetado)
+SUCCESS_RESULTS=()
 
 # Mostra as instruções de utilização do script
 usage() {
@@ -396,6 +404,140 @@ detect_password_spray() {
     ')
 }
 
+# Secção 3.4, passo 1: das linhas "Failed password" e "Accepted password/publickey" imprime
+#   "IP timestamp username tipo habitual" (tipo = fail ou success), como no detect_brute_force.
+#   O IP é o campo a seguir a "from" e o username é o campo antes de "from".
+#   habitual = IP do 1.º login com sucesso anterior desse username ("-" se ainda não
+#   houve nenhum, e sempre "-" nas falhas). EVENTS_FILE está por ordem cronológica,
+#   por isso o 1.º sucesso que aparece é o mais antigo.
+success_events() {
+    awk '/Failed password/ || /Accepted (password|publickey) for/ {
+        type = "fail"
+        if (/Accepted (password|publickey) for/)
+            type = "success"
+        for (i = 1; i <= NF; i++) {
+            if ($i == "from") {
+                user = $(i-1)
+                # "invalid user  from": username vazio (ver detect_brute_force)
+                if ($(i-2) == "invalid" && $(i-1) == "user")
+                    user = "<empty>"
+                usual = "-"
+                if (type == "success") {
+                    if (user in first_ip)
+                        usual = first_ip[user]       # já houve um sucesso antes deste
+                    else
+                        first_ip[user] = $(i+1)      # 1.º sucesso: passa a ser o IP habitual
+                }
+                print $(i+1), $1, user, type, usual
+            }
+        }
+    }' "$EVENTS_FILE"
+}
+
+# Secção 3.4, passo 2: janela deslizante de SUCCESS_WINDOW minutos sobre as falhas,
+#   um grupo de cada vez. $1 = coluna que define o grupo: 1 (IP) ou 3 (username).
+#   O input tem de vir agrupado por essa coluna e em ordem cronológica dentro do grupo.
+#   Imprime "ip,user,time,failures,reason" para cada sucesso com >= FAIL_THRESHOLD
+#   falhas do mesmo grupo nos SUCCESS_WINDOW minutos antes; reason = ip ou user.
+#   Typo: se o sucesso vem do IP habitual do user e as falhas na janela vindas desse
+#   IP são <= TYPO_MAX, essas falhas não contam (as de outros IPs contam sempre).
+success_window() {
+    TZ=UTC awk -v col="$1" -v n="$FAIL_THRESHOLD" -v window="$((SUCCESS_WINDOW * 60))" \
+        -v typo_max="$TYPO_MAX" '
+        # Converte o timestamp ISO 8601 em segundos (igual ao detect_brute_force)
+        function to_epoch(ts) {
+            ts = substr(ts, 1, 19)
+            gsub(/[-T:]/, " ", ts)
+            return mktime(ts)
+        }
+
+        BEGIN {
+            reason = "ip"
+            if (col == 3)
+                reason = "user"
+        }
+
+        {
+            # Começa um grupo novo (IP ou username): reinicia a janela
+            if ($col != prev_group) {
+                prev_group = $col
+                k = 0                    # número da última falha dentro do grupo
+                left = 1                 # número da falha mais antiga ainda na janela
+            }
+
+            now = to_epoch($2)
+
+            # Falha: só é guardada, para contar quando vier um sucesso
+            if ($4 == "fail") {
+                k++
+                t[k] = now
+                ip[k] = $1               # IP da falha k (para o typo)
+                next
+            }
+
+            # Sucesso: saem pela esquerda as falhas a mais de SUCCESS_WINDOW minutos dele.
+            # while e não if: podem ter de sair várias de uma vez.
+            # left <= k: não passar da última falha (a janela pode ficar vazia)
+            while (left <= k && now - t[left] > window)
+                left++
+
+            # Falhas que ficaram na janela = da left à k
+            failures = k - left + 1
+
+            # Typo: o sucesso vem do IP habitual ($5) do user. Conta as falhas da
+            # janela que vieram desse IP; se forem poucas, tira-as da contagem
+            if ($1 == $5) {
+                from_usual = 0
+                for (j = left; j <= k; j++)
+                    if (ip[j] == $1)
+                        from_usual++
+                if (from_usual <= typo_max)
+                    failures -= from_usual
+            }
+
+            if (failures >= n)
+                print $1 "," $3 "," $2 "," failures "," reason
+        }
+    '
+}
+
+# Secção 3.4: deteta logins com sucesso com >= FAIL_THRESHOLD falhas do mesmo IP
+# ou do mesmo username nos SUCCESS_WINDOW minutos antes
+detect_success_after_failures() {
+    # Corre a janela duas vezes, com o input agrupado de maneiras diferentes:
+    #   sort -k1,1 agrupa por IP, sort -k3,3 agrupa por username. -s (estável) mantém
+    #   a ordem cronológica dentro de cada grupo (EVENTS_FILE já está ordenado).
+    # awk de junção: o mesmo login pode ser detetado pelas duas vias. A chave
+    #   "ip,user,time" identifica o login; se aparecer duas vezes fica só uma linha,
+    #   com reason = both e o maior número de falhas.
+    # sort final: por tempo (3.ª coluna do CSV), para o output sair em ordem cronológica.
+    # mapfile: guarda cada linha CSV num elemento de SUCCESS_RESULTS ("< <(...)" pelo
+    #   mesmo motivo do detect_brute_force: num pipe o array ficaria vazio).
+    mapfile -t SUCCESS_RESULTS < <(
+        {
+            success_events | LC_ALL=C sort -s -k1,1 | success_window 1
+            success_events | LC_ALL=C sort -s -k3,3 | success_window 3
+        } | awk -F, '
+            {
+                key = $1 "," $2 "," $3
+                if (!(key in failures)) {
+                    order[++count] = key     # guarda a ordem para não usar "for (key in ...)"
+                    failures[key] = $4
+                    reason[key] = $5
+                } else {
+                    if ($4 > failures[key])
+                        failures[key] = $4
+                    reason[key] = "both"
+                }
+            }
+            END {
+                for (i = 1; i <= count; i++)
+                    print order[i] "," failures[order[i]] "," reason[order[i]]
+            }
+        ' | LC_ALL=C sort -t, -k3,3
+    )
+}
+
 # Imprime o relatório a partir dos arrays de resultados das detect_*
 print_report() {
     local line ip first last failures users successes login
@@ -445,6 +587,23 @@ print_report() {
             echo "  Not existing on the server: ${non_existing:-none}"
         done
     fi
+
+    local user time reason
+
+    echo
+    echo "=== Successful login after failures (>= $FAIL_THRESHOLD failures from the same IP or for the same user in the $SUCCESS_WINDOW min before) ==="
+    if [[ "${#SUCCESS_RESULTS[@]}" -eq 0 ]]; then
+        echo "No successful logins after failures detected."
+    else
+        for line in "${SUCCESS_RESULTS[@]}"; do
+            IFS=, read -r ip user time failures reason <<< "$line"
+            echo "User: $user"
+            echo "  IP:              $ip"
+            echo "  Time:            $time"
+            echo "  Failures before: $failures"
+            echo "  Detected by:     $reason"
+        done
+    fi
 }
 
 main() {
@@ -453,6 +612,7 @@ main() {
     read_logs
     detect_brute_force
     detect_password_spray
+    detect_success_after_failures
     print_report
 
     echo "TODO: implement analyze_auth.sh" >&2

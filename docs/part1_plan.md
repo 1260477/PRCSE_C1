@@ -64,12 +64,12 @@
 ---
 
 ## Fase 4 — Pastas Partilhadas e ACLs (Secção 1.3)
-- [ ] **4.1** Criar todas as pastas definidas em `access-policy.csv` (owner `root`, group owner = primeiro grupo com `rwx`, `setgid` ativo `g+s`, `others` sem acesso `---`).
-- [ ] **4.2** Aplicar ACLs exatas da política e *default ACLs* para herança de novos ficheiros/subpastas.
-- [ ] **4.3** Aplicar travessia mínima (`--x`) em pastas-pai quando um grupo tem acesso a uma subpasta mas não ao pai (sem permitir listar o pai).
-- [ ] **4.4** Aplicar exceção de estagiários (`intern`): onde o seu departamento tem `rwx`, atribuir ACL individual `r-x` (e default ACL `r-x`).
-- [ ] **4.5** Garantir que ficheiros e subpastas **já existentes** dentro das pastas também seguem a política após a execução.
-- [ ] **4.6** Garantir idempotência nas pastas/ACLs (só alterar e registar log quando houver diferença real).
+- [x] **4.1** Criar todas as pastas definidas em `access-policy.csv` (owner `root`, group owner = primeiro grupo com `rwx`, `setgid` ativo `g+s`, `others` sem acesso `---`).
+- [x] **4.2** Aplicar ACLs exatas da política e *default ACLs* para herança de novos ficheiros/subpastas.
+- [x] **4.3** Aplicar travessia mínima (`--x`) em pastas-pai quando um grupo tem acesso a uma subpasta mas não ao pai (sem permitir listar o pai).
+- [x] **4.4** Aplicar exceção de estagiários (`intern`): onde o seu departamento tem `rwx`, atribuir ACL individual `r-x` (e default ACL `r-x`).
+- [x] **4.5** Garantir que ficheiros e subpastas **já existentes** dentro das pastas também seguem a política após a execução.
+- [x] **4.6** Garantir idempotência nas pastas/ACLs (só alterar e registar log quando houver diferença real).
 
 ---
 

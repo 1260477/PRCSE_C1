@@ -156,3 +156,47 @@ O `provision.sh` segue uma abordagem **fail-fast na estrutura e resiliente nos d
 - `gzip -t arquivo.tar.gz && tar -tzf arquivo.tar.gz >/dev/null`: testa a integridade da compressão e da estrutura `tar` antes de apagar a home original.
 - `comando || true`: impede que `set -e` aborte o script quando um comando auxiliar (como `pkill` sem processos ou `crontab -r` sem crontab) devolve código diferente de `0`.
 - `for emp_id in "${!EXISTING_EMP_USER[@]}"`: o `!` antes do nome do array associativo itera sobre as **chaves** (neste caso os `employee_id`), e não sobre os valores.
+
+---
+
+## Fase 4 — Pastas Partilhadas e ACLs
+
+### O que foi implementado e porquê
+1. **Criação e configuração base das pastas (`get_folder_group_owner`, `ensure_shared_folders` — Passo 4.1):**
+   - Garante que `/srv/company` existe com dono `root:root` e permissões `0711` (`rwx--x--x`) quando não está listado diretamente em `access-policy.csv`: assim os utilizadores conseguem atravessar `/srv/company` até às pastas dos seus departamentos, sem conseguirem listar o conteúdo da raiz.
+   - Para cada pasta única em `POLICY_FOLDERS`, `get_folder_group_owner` percorre `POLICY_RULES["$folder"]` pela ordem do CSV e escolhe o **primeiro grupo com `rwx`** (com *fallback* para `root` caso a pasta só tenha regras `r-x`, evitando dar escrita implícita via grupo).
+   - Cria a pasta com `mkdir -p`, define `chown root:<grupo>` e `chmod 2770`:
+     - O bit `2` (*setgid*, `g+s`) faz com que novos ficheiros/subpastas herdem o grupo da pasta em vez do grupo primário do utilizador.
+     - O `0` final (`others = ---`) bloqueia qualquer acesso fora dos grupos/ACLs autorizados.
+   - Para pastas já existentes, usa `stat -c '%U'`, `stat -c '%G'` e `stat -c '%a'` para só aplicar `chown`/`chmod` quando há diferença real (e *antes* das ACLs, porque `chmod` altera a `mask` das ACLs).
+
+2. **ACLs exatas e *default ACLs* (`sync_directory_acl` — Passo 4.2):**
+   - Constrói a lista exata de permissões de acesso (`u::rwx`, `g::rwx`, `o::---`, `m::rwx` e cada `g:<grupo>:<perms>` da política) e a lista equivalente de *default ACLs* (`setfacl -d -m ...`) para que novos ficheiros e subpastas herdem automaticamente a política.
+   - A `mask` (`m::rwx`) é obrigatória: em ACLs POSIX, a máscara limita a permissão máxima efetiva de qualquer grupo nomeado ou utilizador nomeado (`u:<user>:`, `g:<grp>:`). Sem `m::rwx`, uma entrada `rwx` poderia ficar reduzida.
+   - Antes de aplicar, corre `setfacl -b` para apagar quaisquer ACLs residuais antigas (por exemplo, de um grupo que saiu da política), garantindo que a ACL final reflete **exatamente** o `access-policy.csv`.
+
+3. **Travessia mínima `--x` em pastas-pai (`get_traversal_groups_for_folder` — Passo 4.3):**
+   - Se uma pasta `sub` é descendente estrita de `parent_folder` (`[[ "$sub" == "$parent_folder/"* ]]`), qualquer grupo presente em `sub` que **não** tenha regra explícita em `parent_folder` recebe apenas `g:<grupo>:--x` na ACL de acesso de `parent_folder` (ex.: `finance` tem `r-x` em `/srv/company/hr/payroll`, logo recebe `g:finance:--x` em `/srv/company/hr`).
+   - Nota importante: esta entrada `--x` vai apenas para a **ACL de acesso** da pasta-pai e **não** para as *default ACLs*, para que o grupo consiga atravessar a pasta-pai sem herdar acesso a outras subpastas novas lá criadas.
+
+4. **Exceção de estagiários (`get_folder_interns` — Passo 4.4):**
+   - Percorre `EMP_IDS` à procura de utilizadores `active` com `role == intern` cujo departamento tenha `rwx` nessa pasta (`" ${dept}:rwx "`).
+   - Adiciona `u:<username>:r-x` à ACL de acesso e `d:u:<username>:r-x` à *default ACL*.
+   - Funciona mesmo o estagiário pertencendo ao grupo do departamento (`g:<dept>:rwx`) porque, na avaliação de ACLs POSIX, a entrada de **utilizador nomeado (`u:<user>:`) tem prioridade sobre as entradas de grupo (`g:<dept>:`)**, restringindo o estagiário a leitura/travessia (`r-x`).
+
+5. **Conteúdo já existente e proteção de subpastas com política própria (`ensure_folder_acls`, `sync_file_acl`, `is_under_other_policy_folder` — Passo 4.5):**
+   - Quando a pasta já existe no disco, `find "$folder" -mindepth 1 -print0` percorre subpastas e ficheiros já existentes.
+   - `is_under_other_policy_folder` ignora qualquer caminho que pertença a uma pasta mais específica da política (ex.: ao sincronizar `/srv/company/hr`, nunca toca em `/srv/company/hr/payroll`), evitando sobrescrever políticas mais específicas e quebrar a idempotência.
+   - Em **ficheiros regulares** (`sync_file_acl`), não se aplicam *default ACLs* (inválido em ficheiros) e preserva-se o bit `x` apenas se o ficheiro já for executável (`[[ -x "$target" ]]`), equivalendo ao `rX`/`rwX` do `setfacl` (não dá permissão de execução indevida a documentos).
+
+6. **Idempotência nas pastas e ACLs (`normalize_getfacl` — Passo 4.6):**
+   - Para cada pasta ou ficheiro existente, `normalize_getfacl` lê `getfacl -p --omit-header`, remove comentários (`#...`) e linhas em branco, e ordena as linhas.
+   - O script constrói a lista canónica esperada (também ordenada) e compara as duas strings: **só chama `setfacl` e `log_change` quando existe diferença real**. Assim, uma segunda execução com os mesmos ficheiros devolve `No changes needed (already up to date).`.
+
+### Sintaxe Bash para recordar na defesa
+- `stat -c '%U'` / `'%G'` / `'%a'`: lê respetivamente o dono, o grupo e o modo octal atual (ex.: `2770`) de um ficheiro/pasta.
+- `setfacl -b <alvo>`: remove todas as ACLs estendidas e *default ACLs* existentes antes de reaplicar a política limpa.
+- `setfacl -m <spec> <alvo>` e `setfacl -d -m <spec> <alvo>`: aplica ACLs de acesso e *default ACLs* (herança para novos itens), respetivamente.
+- `getfacl -p --omit-header <alvo>`: mostra as ACLs sem cabeçalho `# file:` e preservando o caminho completo (`-p`), ideal para comparação automática.
+- `find "$folder" -mindepth 1 -print0` com `while IFS= read -r -d '' item`: percorre ficheiros/pastas de forma segura mesmo que tenham espaços no nome (`-print0` + `-d ''` usa NUL como separador).
+- `(IFS=','; echo "${arr[*]}")`: junta os elementos de um array com vírgulas dentro de uma *subshell* `( ... )` para não alterar o `IFS` global do script.

@@ -58,8 +58,8 @@ declare -A EMP_USERNAME
 declare -A USED_USERNAMES
 
 # Utilizadores geridos já existentes no sistema (identificados por "(E...)" no GECOS)
-declare -A EXISTING_EMP_USER
-declare -A EXISTING_EMP_GECOS
+declare -A EXISTING_EMP_USER=()
+declare -A EXISTING_EMP_GECOS=()
 
 # Mostra as instruções de utilização do script
 usage() {
@@ -946,6 +946,297 @@ warn_missing_users() {
     done
 }
 
+# Devolve o primeiro grupo com acesso rwx para uma pasta da política (ou 'root' se não existir nenhum)
+get_folder_group_owner() {
+    local folder="$1"
+    local rules="${POLICY_RULES["$folder"]:-}"
+    local entry grp acc
+
+    for entry in $rules; do
+        IFS=':' read -r grp acc <<< "$entry"
+        if [[ "$acc" == "rwx" ]]; then
+            echo "$grp"
+            return 0
+        fi
+    done
+
+    echo "root"
+}
+
+# Passo 4.1: Cria as pastas definidas em access-policy.csv com owner root,
+# group owner = 1.º grupo rwx, setgid ativo (g+s) e sem acesso para others (2770)
+ensure_shared_folders() {
+    # Garante a pasta raiz /srv/company (caso não esteja na política) com travessia mínima para não-root
+    if [[ ${#POLICY_FOLDERS[@]} -eq 0 ]] || ! in_array "$COMPANY_DIR" "${POLICY_FOLDERS[@]}"; then
+        if [[ ! -d "$COMPANY_DIR" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                mkdir -p "$COMPANY_DIR"
+                chown root:root "$COMPANY_DIR"
+                chmod 0711 "$COMPANY_DIR"
+            fi
+            log_change "Created company root '$COMPANY_DIR' (owner=root:root, mode=0711)"
+        fi
+    fi
+
+    local folder target_group
+    for folder in "${POLICY_FOLDERS[@]}"; do
+        target_group="$(get_folder_group_owner "$folder")"
+
+        if [[ ! -d "$folder" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                mkdir -p "$folder"
+                chown "root:$target_group" "$folder"
+                chmod 2770 "$folder"
+            fi
+            log_change "Created shared folder '$folder' (owner=root:$target_group, mode=2770)"
+            continue
+        fi
+
+        local current_owner current_group current_mode
+        current_owner="$(stat -c '%U' "$folder")"
+        current_group="$(stat -c '%G' "$folder")"
+        current_mode="$(stat -c '%a' "$folder")"
+
+        if [[ "$current_owner" != "root" || "$current_group" != "$target_group" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                chown "root:$target_group" "$folder"
+            fi
+            log_change "Updated ownership on '$folder' to root:$target_group"
+        fi
+
+        if [[ "$current_mode" != "2770" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                chmod 2770 "$folder"
+            fi
+            log_change "Updated base permissions on '$folder' to 2770"
+        fi
+    done
+}
+
+# Normaliza o output de getfacl -p --omit-header para comparação idempotente:
+# remove comentários (#...), linhas vazias e ordena as entradas
+normalize_getfacl() {
+    local target="$1"
+    getfacl -p --omit-header "$target" 2>/dev/null | sed 's/[[:space:]]*#.*$//' | grep -v '^$' | sort
+}
+
+# Passo 4.3: Devolve os grupos que precisam de travessia mínima (--x) nesta pasta
+# porque têm acesso a uma subpasta descendente, mas não têm regra nesta pasta-pai
+get_traversal_groups_for_folder() {
+    local parent_folder="$1"
+    local parent_rules="${POLICY_RULES["$parent_folder"]:-}"
+    local parent_groups=()
+    local entry grp acc
+
+    for entry in $parent_rules; do
+        IFS=':' read -r grp acc <<< "$entry"
+        parent_groups+=("$grp")
+    done
+
+    local traversal_groups=()
+    local sub sub_rules
+    for sub in "${POLICY_FOLDERS[@]}"; do
+        # Só interessa se sub for descendente estrito de parent_folder
+        if [[ "$sub" != "$parent_folder/"* ]]; then
+            continue
+        fi
+
+        sub_rules="${POLICY_RULES["$sub"]:-}"
+        for entry in $sub_rules; do
+            IFS=':' read -r grp acc <<< "$entry"
+            if [[ ${#parent_groups[@]} -gt 0 ]] && in_array "$grp" "${parent_groups[@]}"; then
+                continue
+            fi
+            if [[ ${#traversal_groups[@]} -eq 0 ]] || ! in_array "$grp" "${traversal_groups[@]}"; then
+                traversal_groups+=("$grp")
+            fi
+        done
+    done
+
+    if [[ ${#traversal_groups[@]} -gt 0 ]]; then
+        printf '%s\n' "${traversal_groups[@]}"
+    fi
+}
+
+# Passo 4.4: Devolve os usernames de estagiários (intern) ativos cujo departamento
+# tem acesso rwx nesta pasta (para receberem ACL individual r-x)
+get_folder_interns() {
+    local folder="$1"
+    local rules="${POLICY_RULES["$folder"]:-}"
+    local emp_id dept
+
+    for emp_id in "${EMP_IDS[@]}"; do
+        if [[ "${EMP_STATUS["$emp_id"]}" != "active" || "${EMP_ROLE["$emp_id"]}" != "intern" ]]; then
+            continue
+        fi
+
+        dept="${EMP_DEPT["$emp_id"]}"
+        # Verifica se "<dept>:rwx" consta nas regras desta pasta
+        if echo " $rules " | grep -qF " ${dept}:rwx "; then
+            echo "${EMP_USERNAME["$emp_id"]}"
+        fi
+    done
+}
+
+# Verifica se um caminho pertence a outra pasta da política mais específica do que owner_folder
+# (evita que setfacl em /srv/company/hr sobrescreva /srv/company/hr/payroll)
+is_under_other_policy_folder() {
+    local path="$1"
+    local owner_folder="$2"
+    local other
+
+    for other in "${POLICY_FOLDERS[@]}"; do
+        if [[ "$other" == "$owner_folder/"* ]]; then
+            if [[ "$path" == "$other" || "$path" == "$other/"* ]]; then
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+# Garante ACLs e default ACLs exatas numa pasta (com verificação idempotente prévia)
+sync_directory_acl() {
+    local target="$1"
+    local rules="$2"
+    local traversal_list="$3"
+    local interns_list="$4"
+
+    local access_entries=("u::rwx" "g::rwx" "o::---" "m::rwx")
+    local default_entries=("u::rwx" "g::rwx" "o::---" "m::rwx")
+    local expected_lines=("user::rwx" "group::rwx" "other::---" "mask::rwx" "default:user::rwx" "default:group::rwx" "default:other::---" "default:mask::rwx")
+
+    local entry grp acc
+    for entry in $rules; do
+        IFS=':' read -r grp acc <<< "$entry"
+        access_entries+=("g:${grp}:${acc}")
+        default_entries+=("g:${grp}:${acc}")
+        expected_lines+=("group:${grp}:${acc}" "default:group:${grp}:${acc}")
+    done
+
+    local tgrp
+    for tgrp in $traversal_list; do
+        access_entries+=("g:${tgrp}:--x")
+        expected_lines+=("group:${tgrp}:--x")
+    done
+
+    local intern_user
+    for intern_user in $interns_list; do
+        access_entries+=("u:${intern_user}:r-x")
+        default_entries+=("u:${intern_user}:r-x")
+        expected_lines+=("user:${intern_user}:r-x" "default:user:${intern_user}:r-x")
+    done
+
+    local expected_sorted
+    expected_sorted="$(printf '%s\n' "${expected_lines[@]}" | sort)"
+
+    local needs_update=0
+    if [[ ! -d "$target" ]]; then
+        needs_update=1
+    else
+        local current_sorted
+        current_sorted="$(normalize_getfacl "$target")"
+        if [[ "$current_sorted" != "$expected_sorted" ]]; then
+            needs_update=1
+        fi
+    fi
+
+    if [[ "$needs_update" -eq 1 ]]; then
+        local access_spec default_spec
+        access_spec="$(IFS=','; echo "${access_entries[*]}")"
+        default_spec="$(IFS=','; echo "${default_entries[*]}")"
+
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            setfacl -b "$target"
+            setfacl -m "$access_spec" "$target"
+            setfacl -d -m "$default_spec" "$target"
+        fi
+        log_change "Synchronized ACLs and default ACLs on '$target'"
+    fi
+}
+
+# Garante ACLs exatas num ficheiro regular existente (rwX/r-X para não dar +x indevido)
+sync_file_acl() {
+    local target="$1"
+    local rules="$2"
+    local interns_list="$3"
+
+    # Mantém x apenas se o ficheiro já for executável
+    local x_bit="-"
+    if [[ -x "$target" ]]; then
+        x_bit="x"
+    fi
+
+    local access_entries=("u::rw${x_bit}" "g::rw${x_bit}" "o::---" "m::rw${x_bit}")
+    local expected_lines=("user::rw${x_bit}" "group::rw${x_bit}" "other::---" "mask::rw${x_bit}")
+
+    local entry grp acc file_acc
+    for entry in $rules; do
+        IFS=':' read -r grp acc <<< "$entry"
+        if [[ "$acc" == "rwx" ]]; then
+            file_acc="rw${x_bit}"
+        else
+            file_acc="r-${x_bit}"
+        fi
+        access_entries+=("g:${grp}:${file_acc}")
+        expected_lines+=("group:${grp}:${file_acc}")
+    done
+
+    local intern_user
+    for intern_user in $interns_list; do
+        access_entries+=("u:${intern_user}:r-${x_bit}")
+        expected_lines+=("user:${intern_user}:r-${x_bit}")
+    done
+
+    local expected_sorted
+    expected_sorted="$(printf '%s\n' "${expected_lines[@]}" | sort)"
+    local current_sorted
+    current_sorted="$(normalize_getfacl "$target")"
+
+    if [[ "$current_sorted" != "$expected_sorted" ]]; then
+        local access_spec
+        access_spec="$(IFS=','; echo "${access_entries[*]}")"
+
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            setfacl -b "$target"
+            setfacl -m "$access_spec" "$target"
+        fi
+        log_change "Synchronized ACLs on existing file '$target'"
+    fi
+}
+
+# Passos 4.2, 4.3, 4.4, 4.5 e 4.6: Aplica ACLs da política, default ACLs,
+# travessia --x em pastas-pai, exceção r-x para interns e sincronização de conteúdo existente
+ensure_folder_acls() {
+    local folder rules traversal_list interns_list
+
+    for folder in "${POLICY_FOLDERS[@]}"; do
+        rules="${POLICY_RULES["$folder"]:-}"
+        traversal_list="$(get_traversal_groups_for_folder "$folder")"
+        interns_list="$(get_folder_interns "$folder")"
+
+        # Aplica ACLs exatas e default ACLs na própria pasta da política
+        sync_directory_acl "$folder" "$rules" "$traversal_list" "$interns_list"
+
+        # Passo 4.5: Se a pasta já existe, garante que subpastas e ficheiros já existentes seguem a política
+        if [[ -d "$folder" ]]; then
+            local item
+            while IFS= read -r -d '' item; do
+                # Não sobrescreve subpastas que tenham regra própria na política (ex: /srv/company/hr/payroll)
+                if is_under_other_policy_folder "$item" "$folder"; then
+                    continue
+                fi
+
+                if [[ -d "$item" ]]; then
+                    sync_directory_acl "$item" "$rules" "" "$interns_list"
+                elif [[ -f "$item" ]]; then
+                    sync_file_acl "$item" "$rules" "$interns_list"
+                fi
+            done < <(find "$folder" -mindepth 1 -print0)
+        fi
+    done
+}
+
 main() {
     parse_args "$@"
     check_pre_reqs
@@ -960,6 +1251,8 @@ main() {
     ensure_sudo_access
     offboard_users
     warn_missing_users
+    ensure_shared_folders
+    ensure_folder_acls
 
     # Se nenhuma alteração foi feita (ou prevista em --dry-run), informa o utilizador
     if [[ "$CHANGES_MADE" -eq 0 ]]; then

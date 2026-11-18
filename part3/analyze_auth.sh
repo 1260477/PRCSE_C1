@@ -51,6 +51,16 @@ SPRAY_RESULTS=()
 #     (se as duas vias detetarem o login, fica o maior dos dois números)
 #   reason: ip, user ou both (por qual das vias foi detetado)
 SUCCESS_RESULTS=()
+# Secção 3.5: um array por lista, porque as três têm colunas diferentes
+# TOP_IPS_RESULTS: ip,failures,successes
+#   os TOP_N IPs com mais tentativas (falhas + sucessos), do maior para o menor
+TOP_IPS_RESULTS=()
+# TOP_USERS_RESULTS: user,failures
+#   os TOP_N usernames com mais falhas (os mais atacados), do maior para o menor
+TOP_USERS_RESULTS=()
+# ROOT_LOGINS_RESULTS: ip,time
+#   cada login com sucesso como root por SSH, por ordem cronológica
+ROOT_LOGINS_RESULTS=()
 
 # Mostra as instruções de utilização do script
 usage() {
@@ -517,6 +527,55 @@ detect_success_after_failures() {
     )
 }
 
+# Secção 3.5: top TOP_N IPs (falhas e sucessos), top TOP_N usernames atacados
+# e logins como root por SSH
+detect_most_active() {
+    # Top IPs
+    # awk: conta falhas e sucessos de cada IP e imprime "ip,failures,successes,total".
+    #   Aqui usam-se arrays indexados pelo IP (e não sort + um IP de cada vez), porque
+    #   só é preciso contar, sem janela; a ordem do "for (ip in ...)" não importa,
+    #   porque o sort a seguir é que ordena.
+    # sort: -t, separa por vírgulas; -k4,4nr = total, numérico, do maior para o menor;
+    #   -k1,1 = em caso de empate, pelo IP, para o resultado ser sempre o mesmo.
+    # head: fica com os TOP_N primeiros. cut: tira o total (só servia para ordenar).
+    mapfile -t TOP_IPS_RESULTS < <(awk '
+        # Campos de SSH_FILE: $1 ip, $5 type
+        {
+            total[$1]++
+            if ($5 == "fail")
+                failures[$1]++
+            else
+                successes[$1]++
+        }
+        END {
+            # "+ 0": um IP sem falhas (ou sem sucessos) imprime 0 e não vazio
+            for (ip in total)
+                print ip "," failures[ip] + 0 "," successes[ip] + 0 "," total[ip]
+        }
+    ' "$SSH_FILE" | LC_ALL=C sort -t, -k4,4nr -k1,1 | head -n "$TOP_N" | cut -d, -f1-3)
+
+    # Top usernames atacados
+    # awk: conta as falhas de cada username (atacado = tentativa falhada) e imprime
+    #   "user,failures". O username vazio conta como "<empty>" (pressuposto 6).
+    # sort: falhas, numérico, do maior para o menor; empate pelo username. head: TOP_N.
+    mapfile -t TOP_USERS_RESULTS < <(awk '
+        # Campos de SSH_FILE: $4 user, $5 type
+        $5 == "fail" { failures[$4]++ }
+        END {
+            for (user in failures)
+                print user "," failures[user]
+        }
+    ' "$SSH_FILE" | LC_ALL=C sort -t, -k2,2nr -k1,1 | head -n "$TOP_N")
+
+    # Logins como root por SSH
+    # awk: dos sucessos do user root imprime "ip,time". Não precisa de sort, porque
+    #   SSH_FILE já está por ordem cronológica. Não leva head: mostram-se todos.
+    mapfile -t ROOT_LOGINS_RESULTS < <(awk '
+        # Campos de SSH_FILE: $1 ip, $3 timestamp, $4 user, $5 type
+        $4 == "root" && $5 == "success" { print $1 "," $3 }
+    ' "$SSH_FILE")
+}
+
 # Imprime o relatório a partir dos arrays de resultados das detect_*
 print_report() {
     local line ip first last failures users successes login
@@ -583,6 +642,45 @@ print_report() {
             echo "  Detected by:     $reason"
         done
     fi
+
+    local successes
+
+    # Tops em tabela: printf com larguras fixas alinha as colunas
+    # (%-15s = texto à esquerda em 15 caracteres, %8s = à direita em 8, bom para números)
+    echo
+    echo "=== Top $TOP_N IPs (failed + successful logins) ==="
+    if [[ "${#TOP_IPS_RESULTS[@]}" -eq 0 ]]; then
+        echo "No SSH login attempts found."
+    else
+        printf "%-15s %8s %10s\n" "IP" "Failed" "Successful"
+        for line in "${TOP_IPS_RESULTS[@]}"; do
+            IFS=, read -r ip failures successes <<< "$line"
+            printf "%-15s %8s %10s\n" "$ip" "$failures" "$successes"
+        done
+    fi
+
+    echo
+    echo "=== Top $TOP_N attacked usernames (failed logins) ==="
+    if [[ "${#TOP_USERS_RESULTS[@]}" -eq 0 ]]; then
+        echo "No failed logins found."
+    else
+        printf "%-20s %8s\n" "Username" "Failed"
+        for line in "${TOP_USERS_RESULTS[@]}"; do
+            IFS=, read -r user failures <<< "$line"
+            printf "%-20s %8s\n" "$user" "$failures"
+        done
+    fi
+
+    echo
+    echo "=== Logins as root over SSH ==="
+    if [[ "${#ROOT_LOGINS_RESULTS[@]}" -eq 0 ]]; then
+        echo "No root logins over SSH."
+    else
+        for line in "${ROOT_LOGINS_RESULTS[@]}"; do
+            IFS=, read -r ip time <<< "$line"
+            echo "$time from $ip"
+        done
+    fi
 }
 
 main() {
@@ -593,6 +691,7 @@ main() {
     detect_brute_force
     detect_password_spray
     detect_success_after_failures
+    detect_most_active
     print_report
 
     echo "TODO: implement analyze_auth.sh" >&2

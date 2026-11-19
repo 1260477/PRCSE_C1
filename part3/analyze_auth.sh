@@ -61,6 +61,16 @@ TOP_USERS_RESULTS=()
 # ROOT_LOGINS_RESULTS: ip,time
 #   cada login com sucesso como root por SSH, por ordem cronológica
 ROOT_LOGINS_RESULTS=()
+# Secção 3.6
+# SESSION_RESULTS: user,ip,start,end
+#   a sessão aberta por cada login suspeito da 3.4, por ordem cronológica
+#   start: timestamp do login (linha Accepted); end: timestamp do "session closed"
+#   do mesmo processo sshd, ou "-" se a sessão não fechou até ao fim do log
+SESSION_RESULTS=()
+# SUDO_RESULTS: user,time,command
+#   cada comando sudo corrido numa sessão suspeita (login da 3.4), por ordem cronológica
+#   command fica em último porque pode conter vírgulas (o read põe o resto da linha nele)
+SUDO_RESULTS=()
 
 # Mostra as instruções de utilização do script
 usage() {
@@ -576,6 +586,59 @@ detect_most_active() {
     ' "$SSH_FILE")
 }
 
+# Secção 3.6: para as contas suspeitas da 3.4 e as contas criadas no log, as suas
+# sessões, comandos sudo e alterações de contas; e uma timeline dos eventos principais
+detect_what_happened() {
+    local line ip user time
+    local results=()
+
+    # Para cada login suspeito da 3.4, um awk percorre EVENTS_FILE em 3 passos:
+    #   1. encontra a linha "Accepted" desse login (mesmo timestamp, user e IP) e guarda
+    #      o processo sshd que a escreveu ($3, ex.: "sshd[35410]:") e que identifica a sessão
+    #   2. dentro da sessão, guarda as linhas do sudo com COMMAND corridas por esse user
+    #   3. para quando o mesmo processo sshd escreve "session closed" (fim da sessão)
+    # Se a sessão não fechar até ao fim do log, ficam os comandos até ao fim e end = "-".
+    # O awk escreve dois tipos de linha, com o tipo na 1.ª coluna:
+    #   "sudo,user,time,command" e "session,user,ip,start,end"
+    # (o exit no passo 3 salta para o END, que escreve a linha da sessão)
+    mapfile -t results < <(
+        for line in "${SUCCESS_RESULTS[@]}"; do
+            IFS=, read -r ip user time _ <<< "$line"
+            awk -v ip="$ip" -v user="$user" -v time="$time" '
+                # Passo 1: início da sessão
+                !in_session && $1 == time && index($0, "Accepted") && index($0, " for " user " from " ip " ") {
+                    in_session = 1
+                    sshd = $3
+                    end = "-"
+                    next
+                }
+                # Passo 3: fim da sessão
+                in_session && $3 == sshd && index($0, "session closed") {
+                    end = $1
+                    exit
+                }
+                # Passo 2: comandos sudo do user ("... sudo: rfaria : ... COMMAND=...")
+                in_session && $3 == "sudo:" && $4 == user && index($0, "COMMAND=") {
+                    # tudo o que vem depois de "COMMAND=" (8 caracteres)
+                    print "sudo," user "," $1 "," substr($0, index($0, "COMMAND=") + 8)
+                }
+                END {
+                    if (in_session)
+                        print "session," user "," ip "," time "," end
+                }
+            ' "$EVENTS_FILE"
+        done
+    )
+
+    # Separa as linhas pelo tipo: ${line%%,*} = 1.ª coluna, ${line#*,} = o resto
+    for line in "${results[@]}"; do
+        case "${line%%,*}" in
+            session) SESSION_RESULTS+=("${line#*,}") ;;
+            sudo)    SUDO_RESULTS+=("${line#*,}") ;;
+        esac
+    done
+}
+
 # Imprime o relatório a partir dos arrays de resultados das detect_*
 print_report() {
     local line ip first last failures users successes login
@@ -681,6 +744,34 @@ print_report() {
             echo "$time from $ip"
         done
     fi
+
+    local start end command
+
+    echo
+    echo "=== Suspicious sessions (logins from section above) ==="
+    if [[ "${#SESSION_RESULTS[@]}" -eq 0 ]]; then
+        echo "No suspicious sessions."
+    else
+        for line in "${SESSION_RESULTS[@]}"; do
+            IFS=, read -r user ip start end <<< "$line"
+            echo "User: $user"
+            echo "  IP:    $ip"
+            echo "  Start: $start"
+            echo "  End:   $end"
+        done
+    fi
+
+    echo
+    echo "=== Sudo commands in suspicious sessions ==="
+    if [[ "${#SUDO_RESULTS[@]}" -eq 0 ]]; then
+        echo "No sudo commands in suspicious sessions."
+    else
+        for line in "${SUDO_RESULTS[@]}"; do
+            # command é a última variável: fica com o resto da linha, mesmo com vírgulas
+            IFS=, read -r user time command <<< "$line"
+            echo "$time $user: $command"
+        done
+    fi
 }
 
 main() {
@@ -692,6 +783,7 @@ main() {
     detect_password_spray
     detect_success_after_failures
     detect_most_active
+    detect_what_happened
     print_report
 
     echo "TODO: implement analyze_auth.sh" >&2

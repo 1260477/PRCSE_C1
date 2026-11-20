@@ -71,6 +71,13 @@ SESSION_RESULTS=()
 #   cada comando sudo corrido numa sessão suspeita (login da 3.4), por ordem cronológica
 #   command fica em último porque pode conter vírgulas (o read põe o resto da linha nele)
 SUDO_RESULTS=()
+# ACCOUNT_RESULTS: time,action,account,uid,details
+#   cada alteração de conta em todo o log (linhas useradd[...] e passwd[...]), por ordem cronológica
+#   action: created (useradd "new user:") ou password (passwd "password changed for")
+#   uid: UID da conta criada, "-" em password
+#   details: restantes campos do useradd separados por espaço (GID, home, shell, from),
+#   "-" em password; fica em último pelo mesmo motivo que command no SUDO_RESULTS
+ACCOUNT_RESULTS=()
 
 # Mostra as instruções de utilização do script
 usage() {
@@ -639,6 +646,40 @@ detect_what_happened() {
     done
 }
 
+# Alterações de contas (3.6) em todo o log, não só nas sessões suspeitas: uma conta criada
+# noutra sessão (por exemplo como root, sem sudo) também interessa.
+# Usa as linhas escritas pelo próprio useradd/passwd, que confirmam que a alteração aconteceu
+# (as linhas "sudo: ... COMMAND=" só mostram o que foi pedido e já estão no SUDO_RESULTS).
+# Escolhe as linhas pelo 3.º campo (o processo), para não apanhar as linhas do sudo,
+# cujo 3.º campo é "sudo:" mesmo quando o comando é useradd ou passwd.
+detect_account_changes() {
+    mapfile -t ACCOUNT_RESULTS < <(
+        awk '
+            # "... useradd[35590]: new user: name=sysupdate, UID=0, GID=0, home=/root, shell=/bin/bash, from=/dev/pts/2"
+            $3 ~ /^useradd\[/ && index($0, "new user:") {
+                name = "-"; uid = "-"; details = ""
+                for (i = 6; i <= NF; i++) {
+                    value = $i
+                    sub(/,$/, "", value)              # tira a vírgula do fim
+                    if (value ~ /^name=/)
+                        name = substr(value, 6)       # depois de "name=" (5 caracteres)
+                    else if (value ~ /^UID=/)
+                        uid = substr(value, 5)        # depois de "UID=" (4 caracteres)
+                    else
+                        details = details (details == "" ? "" : " ") value
+                }
+                if (details == "") details = "-"
+                print $1 ",created," name "," uid "," details
+                next
+            }
+            # "... passwd[35600]: pam_unix(passwd:chauthtok): password changed for sysupdate"
+            $3 ~ /^passwd\[/ && index($0, "password changed for") {
+                print $1 ",password," $NF ",-,-"
+            }
+        ' "$EVENTS_FILE"
+    )
+}
+
 # Imprime o relatório a partir dos arrays de resultados das detect_*
 print_report() {
     local line ip first last failures users successes login
@@ -772,6 +813,30 @@ print_report() {
             echo "$time $user: $command"
         done
     fi
+
+    local action account uid details
+
+    echo
+    echo "=== Account changes (useradd / passwd) ==="
+    if [[ "${#ACCOUNT_RESULTS[@]}" -eq 0 ]]; then
+        echo "No account changes detected."
+    else
+        for line in "${ACCOUNT_RESULTS[@]}"; do
+            IFS=, read -r time action account uid details <<< "$line"
+            case "$action" in
+                created)
+                    echo "$time account created: $account (UID=$uid $details)"
+                    # UID 0 numa conta que não é root = outra conta com privilégios de root
+                    if [[ "$uid" == "0" && "$account" != "root" ]]; then
+                        echo "  WARNING: UID 0 gives $account root privileges"
+                    fi
+                    ;;
+                password)
+                    echo "$time password changed: $account"
+                    ;;
+            esac
+        done
+    fi
 }
 
 main() {
@@ -784,6 +849,7 @@ main() {
     detect_success_after_failures
     detect_most_active
     detect_what_happened
+    detect_account_changes
     print_report
 
     echo "TODO: implement analyze_auth.sh" >&2

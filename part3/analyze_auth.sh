@@ -70,8 +70,10 @@ ROOT_LOGINS_RESULTS=()
 #   start: timestamp do login (linha Accepted); end: timestamp do "session closed"
 #   do mesmo processo sshd, ou "-" se a sessão não fechou até ao fim do log
 SESSION_RESULTS=()
-# SUDO_RESULTS: user,origin,time,command
+# SUDO_RESULTS: user,origin,time,session,command
 #   todos os comandos sudo das contas seguidas, por ordem cronológica
+#   session: start da sessão SSH do user aberta nesse momento (liga o comando a uma linha
+#   de SESSION_RESULTS), ou "-" se o user não tinha nenhuma aberta
 #   command fica em último porque pode conter vírgulas (o read põe o resto da linha nele)
 SUDO_RESULTS=()
 # ACCOUNT_RESULTS: time,action,account,uid,by,details
@@ -82,6 +84,10 @@ SUDO_RESULTS=()
 #   details: restantes campos do useradd separados por espaço (GID, home, shell, from),
 #   "-" em password; fica em último pelo mesmo motivo que command no SUDO_RESULTS
 ACCOUNT_RESULTS=()
+# TIMELINE_RESULTS: time,description
+#   um evento-chave por linha, de todas as secções, por ordem cronológica
+#   description fica em último porque pode conter vírgulas (ex.: comandos sudo)
+TIMELINE_RESULTS=()
 
 # Mostra as instruções de utilização do script
 usage() {
@@ -616,7 +622,7 @@ detect_most_active() {
 # Usa as linhas do próprio useradd/passwd e não as do sudo, porque confirmam que a alteração
 # aconteceu, e também apanham alterações feitas sem sudo (ex.: por uma conta com UID 0).
 # O awk escreve três tipos de linha, com o tipo na 1.ª coluna:
-#   "session,user,origin,ip,start,end", "sudo,user,origin,time,command" e "account,time,action,account,uid,by,details"
+#   "session,user,origin,ip,start,end", "sudo,user,origin,time,session,command" e "account,time,action,account,uid,by,details"
 detect_what_happened() {
     local line user
     local users=""
@@ -637,6 +643,14 @@ detect_what_happened() {
                 for (pid in open_session)
                     if (open_session[pid] > best) best = open_session[pid]
                 return best ? s_user[best] : "-"
+            }
+            # Início da sessão aberta deste user (a aberta mais recentemente), ou "-"
+            function session_of(user,   pid, best) {
+                best = 0
+                for (pid in open_session)
+                    if (s_user[open_session[pid]] == user && open_session[pid] > best)
+                        best = open_session[pid]
+                return best ? s_start[best] : "-"
             }
             BEGIN {
                 n = split(users, list, " ")
@@ -692,7 +706,7 @@ detect_what_happened() {
             # Comando sudo de uma conta seguida: "... sudo: rfaria : TTY=pts/2 ; ... COMMAND=/usr/bin/cat /etc/shadow"
             $3 == "sudo:" && ($4 in tracked) && index($0, "COMMAND=") {
                 # tudo o que vem depois de "COMMAND=" (8 caracteres)
-                print "sudo," $4 "," tracked[$4] "," $1 "," substr($0, index($0, "COMMAND=") + 8)
+                print "sudo," $4 "," tracked[$4] "," $1 "," session_of($4) "," substr($0, index($0, "COMMAND=") + 8)
             }
             # As sessões são escritas no fim, pela ordem de abertura
             END {
@@ -710,6 +724,100 @@ detect_what_happened() {
             account) ACCOUNT_RESULTS+=("${line#*,}") ;;
         esac
     done
+}
+
+# Timeline (3.6): um evento-chave por linha, para todo o período do log, por ordem cronológica.
+# Não lê os logs: junta eventos dos arrays de resultados das secções anteriores, para a timeline
+# ser coerente com elas. Atividade que parece legítima fica de fora:
+#   - das contas suspeitas da 3.4, só a sessão aberta pelo login detetado e os sudo corridos
+#     nela (as sessões normais da conta, ex.: rfaria a partir de 10.20.3.14, não entram)
+#   - os logins root da 3.5 não entram
+# As contas criadas no log entram sempre, com todas as sessões e sudo.
+build_timeline() {
+    local line ip first last failures users successes login num_users user time
+    local failures_before origin start end session command action account uid by desc
+    local logins=()
+    local events=()
+    # Logins da 3.4, chave "user@time": a sessão e os sudo de uma conta suspeita só entram
+    # se a sessão começou num destes logins (o start da sessão é o time do login)
+    local -A suspicious_login=()
+
+    # Início do período: 1.ª linha de EVENTS_FILE (já ordenado); ${line%% *} = 1.º campo
+    line=$(head -n 1 "$EVENTS_FILE")
+    events+=("${line%% *},Start of the analysed logs")
+
+    # Brute force (3.2): início, fim e logins com sucesso do IP
+    for line in "${BRUTE_RESULTS[@]}"; do
+        IFS=, read -r ip first last failures users successes <<< "$line"
+        events+=("$first,Brute force from $ip started")
+        events+=("$last,Brute force from $ip ended ($failures failed passwords; top usernames: $users)")
+        read -r -a logins <<< "$successes"
+        for login in "${logins[@]}"; do
+            events+=("${login#*@},Successful login as ${login%%@*} from brute force source $ip")
+        done
+    done
+
+    # Password spray (3.3): início e fim
+    for line in "${SPRAY_RESULTS[@]}"; do
+        IFS=, read -r ip first last num_users _ <<< "$line"
+        events+=("$first,Password spray from $ip started")
+        events+=("$last,Password spray from $ip ended ($num_users usernames tried)")
+    done
+
+    # Logins suspeitos (3.4)
+    for line in "${SUCCESS_RESULTS[@]}"; do
+        IFS=, read -r ip user time failures_before _ <<< "$line"
+        suspicious_login["$user@$time"]=1
+        events+=("$time,Suspicious login: $user from $ip after $failures_before failed attempts")
+    done
+
+    # Sessões (3.6). O início da sessão de uma conta suspeita já é a linha do login da 3.4,
+    # por isso só se acrescenta o fim; nas contas criadas acrescentam-se os dois
+    for line in "${SESSION_RESULTS[@]}"; do
+        IFS=, read -r user origin ip start end <<< "$line"
+        if [[ "$origin" == "created" ]]; then
+            events+=("$start,Login as $user from $ip (account created in the log)")
+        elif [[ -z "${suspicious_login["$user@$start"]:-}" ]]; then
+            continue                                  # sessão normal da conta suspeita
+        fi
+        if [[ "$end" != "-" ]]; then
+            events+=("$end,Session of $user from $ip closed")
+        fi
+    done
+
+    # Comandos sudo (3.6): os das contas criadas e os corridos na sessão suspeita
+    for line in "${SUDO_RESULTS[@]}"; do
+        IFS=, read -r user origin time session command <<< "$line"
+        if [[ "$origin" == "created" || -n "${suspicious_login["$user@$session"]:-}" ]]; then
+            events+=("$time,sudo by $user: $command")
+        fi
+    done
+
+    # Alterações de contas (3.6)
+    for line in "${ACCOUNT_RESULTS[@]}"; do
+        IFS=, read -r time action account uid by _ <<< "$line"
+        if [[ "$by" == "-" ]]; then
+            by="unknown"
+        fi
+        if [[ "$action" == "created" ]]; then
+            desc="Account created: $account (UID=$uid) by $by"
+            if [[ "$uid" == "0" && "$account" != "root" ]]; then
+                desc+=" - WARNING: UID 0 gives root privileges"
+            fi
+        else
+            desc="Password changed: $account by $by"
+        fi
+        events+=("$time,$desc")
+    done
+
+    # Fim do período: última linha de EVENTS_FILE (acrescentado em último para, com o
+    # mesmo timestamp de outro evento, ficar depois dele)
+    line=$(tail -n 1 "$EVENTS_FILE")
+    events+=("${line%% *},End of the analysed logs")
+
+    # Ordena pelo timestamp (1.ª coluna). Os timestamps ISO estão todos em +00:00, por isso a
+    # ordem alfabética (LC_ALL=C) é a cronológica; -s mantém a ordem de inserção nos empates
+    mapfile -t TIMELINE_RESULTS < <(printf '%s\n' "${events[@]}" | LC_ALL=C sort -s -t, -k1,1)
 }
 
 # Imprime o relatório a partir dos arrays de resultados das detect_*
@@ -848,7 +956,7 @@ print_report() {
         found=0
         for line in "${SUDO_RESULTS[@]}"; do
             # command é a última variável: fica com o resto da linha, mesmo com vírgulas
-            IFS=, read -r user origin time command <<< "$line"
+            IFS=, read -r user origin time _ command <<< "$line"
             if [[ "$origin" == "$group" ]]; then
                 echo "$time $user: $command"
                 found=1
@@ -886,6 +994,16 @@ print_report() {
             esac
         done
     fi
+
+    local desc
+
+    echo
+    echo "=== Timeline (key events, whole period) ==="
+    for line in "${TIMELINE_RESULTS[@]}"; do
+        # desc é a última variável: fica com o resto da linha, mesmo com vírgulas
+        IFS=, read -r time desc <<< "$line"
+        echo "$time $desc"
+    done
 }
 
 main() {
@@ -898,6 +1016,7 @@ main() {
     detect_success_after_failures
     detect_most_active
     detect_what_happened
+    build_timeline
     print_report
 
     echo "TODO: implement analyze_auth.sh" >&2

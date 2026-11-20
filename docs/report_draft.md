@@ -239,7 +239,31 @@
 
 ## 4. Incident Report (Part 3)
 
-*(1 a 2 páginas: o que aconteceu e quando, o que o atacante fez, que contas e dados foram afetados, o que o `audit.sh` da Parte 2 teria reportado na manhã seguinte, o que deve ser feito agora e o que o teria prevenido.)*
+*(1 a 2 páginas, escrito manualmente. Os factos vêm do output da script (`part3/output.txt`, gerado a partir dos logs fornecidos); a análise e as recomendações são nossas.)*
+
+### 4.1 O que aconteceu e quando
+
+*(Resumo cronológico do período analisado (26–30 out). Fonte: secção "Timeline" de `part3/output.txt`: dois brute force (203.0.113.45, 203.0.113.118), um password spray (198.51.100.23) e o login de `rfaria` a partir de 192.0.2.77 depois de 43 falhas.)*
+
+### 4.2 O que o atacante fez
+
+*(Ações na sessão de `rfaria` e o acesso posterior como `sysupdate`. Fonte: secções de sessões, sudo e alterações de conta de `part3/output.txt`.)*
+
+### 4.3 Contas e dados afetados
+
+*(Contas comprometidas ou criadas e ficheiros/diretorias expostos ou alterados, com o impacto de cada um.)*
+
+### 4.4 O que o `audit.sh` (Parte 2) teria reportado na manhã seguinte
+
+*(Achados `NEW` que as checks da Parte 2 teriam gerado com o estado do servidor depois do ataque. Confirmar com o `audit.sh` final.)*
+
+### 4.5 O que deve ser feito agora
+
+*(Contenção, erradicação e recuperação.)*
+
+### 4.6 O que o teria prevenido
+
+*(Medidas que teriam impedido ou detetado mais cedo cada fase do ataque.)*
 
 ---
 

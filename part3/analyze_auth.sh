@@ -1021,8 +1021,7 @@ main() {
     build_timeline
     print_report
 
-    echo "TODO: implement analyze_auth.sh" >&2
-    exit "$EXIT_FATAL"
+    exit "$EXIT_OK"
 }
 
 # Corre main só quando o script é executado diretamente (não quando é feito 'source' nos testes)

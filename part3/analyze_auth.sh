@@ -317,12 +317,14 @@ detect_brute_force() {
     | awk -v n="$BRUTE_THRESHOLD" -v window="$((BRUTE_WINDOW * 60))" '
         # Devolve os "top" usernames mais tentados do IP atual, no formato "user(N) ..."
         # Procura o máximo, guarda-o e remove-o do array; repete "top" vezes
+        # A ordem de "for (u in users)" depende do awk, por isso os empates são desempatados
+        # pelo username (ordem alfabética), para o resultado ser igual em gawk e mawk
         function top_users(top, list, j, u, best) {
             list = ""
             for (j = 1; j <= top; j++) {
                 best = ""
                 for (u in users)
-                    if (best == "" || users[u] > users[best])
+                    if (best == "" || users[u] > users[best] || (users[u] == users[best] && u < best))
                         best = u
                 if (best == "")
                     break                # já não há mais usernames

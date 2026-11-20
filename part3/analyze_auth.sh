@@ -62,19 +62,23 @@ TOP_USERS_RESULTS=()
 #   cada login com sucesso como root por SSH, por ordem cronológica
 ROOT_LOGINS_RESULTS=()
 # Secção 3.6
-# SESSION_RESULTS: user,ip,start,end
-#   a sessão aberta por cada login suspeito da 3.4, por ordem cronológica
+# "Contas seguidas" = as contas suspeitas da 3.4 e as contas criadas no log
+# origin (em SESSION_RESULTS e SUDO_RESULTS): grupo da conta, suspicious (login da 3.4)
+#   ou created (criada no log); uma conta que seja as duas coisas fica em suspicious
+# SESSION_RESULTS: user,origin,ip,start,end
+#   todas as sessões SSH das contas seguidas, pela ordem de abertura
 #   start: timestamp do login (linha Accepted); end: timestamp do "session closed"
 #   do mesmo processo sshd, ou "-" se a sessão não fechou até ao fim do log
 SESSION_RESULTS=()
-# SUDO_RESULTS: user,time,command
-#   cada comando sudo corrido numa sessão suspeita (login da 3.4), por ordem cronológica
+# SUDO_RESULTS: user,origin,time,command
+#   todos os comandos sudo das contas seguidas, por ordem cronológica
 #   command fica em último porque pode conter vírgulas (o read põe o resto da linha nele)
 SUDO_RESULTS=()
-# ACCOUNT_RESULTS: time,action,account,uid,details
+# ACCOUNT_RESULTS: time,action,account,uid,by,details
 #   cada alteração de conta em todo o log (linhas useradd[...] e passwd[...]), por ordem cronológica
 #   action: created (useradd "new user:") ou password (passwd "password changed for")
 #   uid: UID da conta criada, "-" em password
+#   by: conta seguida com uma sessão aberta nesse momento (quem fez a alteração), ou "-"
 #   details: restantes campos do useradd separados por espaço (GID, home, shell, from),
 #   "-" em password; fica em último pelo mesmo motivo que command no SUDO_RESULTS
 ACCOUNT_RESULTS=()
@@ -595,67 +599,51 @@ detect_most_active() {
 
 # Secção 3.6: para as contas suspeitas da 3.4 e as contas criadas no log, as suas
 # sessões, comandos sudo e alterações de contas; e uma timeline dos eventos principais
+#
+# Um só awk percorre EVENTS_FILE (por ordem cronológica):
+#   - contas seguidas: começam por ser as da 3.4; cada conta criada por useradd entra no
+#     conjunto nesse momento (como o log é cronológico, as sessões de uma conta criada
+#     só podem aparecer depois da criação, por isso uma passagem chega)
+#   - sessões: cada "Accepted ... for <conta seguida>" abre uma sessão, chaveada pelo processo
+#     sshd que escreveu a linha ($3, ex.: "sshd[35410]:"); o "session closed" do mesmo processo
+#     fecha-a. Sessões que não fecham até ao fim do log ficam com end = "-"
+#   - sudo: todas as linhas "sudo: <conta seguida> : ... COMMAND=..."
+#   - alterações de contas: todas as linhas useradd[...] e passwd[...] do log, escolhidas pelo
+#     3.º campo (o processo), para não apanhar as linhas do sudo, cujo 3.º campo é "sudo:"
+#     mesmo quando o comando é useradd ou passwd. São atribuídas (coluna by) à conta seguida
+#     que tem uma sessão aberta nesse momento (a aberta mais recentemente, se houver várias),
+#     ou "-" se não houver nenhuma.
+# Usa as linhas do próprio useradd/passwd e não as do sudo, porque confirmam que a alteração
+# aconteceu, e também apanham alterações feitas sem sudo (ex.: por uma conta com UID 0).
+# O awk escreve três tipos de linha, com o tipo na 1.ª coluna:
+#   "session,user,origin,ip,start,end", "sudo,user,origin,time,command" e "account,time,action,account,uid,by,details"
 detect_what_happened() {
-    local line ip user time
+    local line user
+    local users=""
     local results=()
 
-    # Para cada login suspeito da 3.4, um awk percorre EVENTS_FILE em 3 passos:
-    #   1. encontra a linha "Accepted" desse login (mesmo timestamp, user e IP) e guarda
-    #      o processo sshd que a escreveu ($3, ex.: "sshd[35410]:") e que identifica a sessão
-    #   2. dentro da sessão, guarda as linhas do sudo com COMMAND corridas por esse user
-    #   3. para quando o mesmo processo sshd escreve "session closed" (fim da sessão)
-    # Se a sessão não fechar até ao fim do log, ficam os comandos até ao fim e end = "-".
-    # O awk escreve dois tipos de linha, com o tipo na 1.ª coluna:
-    #   "sudo,user,time,command" e "session,user,ip,start,end"
-    # (o exit no passo 3 salta para o END, que escreve a linha da sessão)
-    mapfile -t results < <(
-        for line in "${SUCCESS_RESULTS[@]}"; do
-            IFS=, read -r ip user time _ <<< "$line"
-            awk -v ip="$ip" -v user="$user" -v time="$time" '
-                # Passo 1: início da sessão
-                !in_session && $1 == time && index($0, "Accepted") && index($0, " for " user " from " ip " ") {
-                    in_session = 1
-                    sshd = $3
-                    end = "-"
-                    next
-                }
-                # Passo 3: fim da sessão
-                in_session && $3 == sshd && index($0, "session closed") {
-                    end = $1
-                    exit
-                }
-                # Passo 2: comandos sudo do user ("... sudo: rfaria : ... COMMAND=...")
-                in_session && $3 == "sudo:" && $4 == user && index($0, "COMMAND=") {
-                    # tudo o que vem depois de "COMMAND=" (8 caracteres)
-                    print "sudo," user "," $1 "," substr($0, index($0, "COMMAND=") + 8)
-                }
-                END {
-                    if (in_session)
-                        print "session," user "," ip "," time "," end
-                }
-            ' "$EVENTS_FILE"
-        done
-    )
-
-    # Separa as linhas pelo tipo: ${line%%,*} = 1.ª coluna, ${line#*,} = o resto
-    for line in "${results[@]}"; do
-        case "${line%%,*}" in
-            session) SESSION_RESULTS+=("${line#*,}") ;;
-            sudo)    SUDO_RESULTS+=("${line#*,}") ;;
-        esac
+    # Users da 3.4, separados por espaço (os repetidos não fazem mal: o awk usa-os como chave)
+    for line in "${SUCCESS_RESULTS[@]}"; do
+        IFS=, read -r _ user _ <<< "$line"
+        users+="$user "
     done
-}
 
-# Alterações de contas (3.6) em todo o log, não só nas sessões suspeitas: uma conta criada
-# noutra sessão (por exemplo como root, sem sudo) também interessa.
-# Usa as linhas escritas pelo próprio useradd/passwd, que confirmam que a alteração aconteceu
-# (as linhas "sudo: ... COMMAND=" só mostram o que foi pedido e já estão no SUDO_RESULTS).
-# Escolhe as linhas pelo 3.º campo (o processo), para não apanhar as linhas do sudo,
-# cujo 3.º campo é "sudo:" mesmo quando o comando é useradd ou passwd.
-detect_account_changes() {
-    mapfile -t ACCOUNT_RESULTS < <(
-        awk '
-            # "... useradd[35590]: new user: name=sysupdate, UID=0, GID=0, home=/root, shell=/bin/bash, from=/dev/pts/2"
+    mapfile -t results < <(
+        awk -v users="$users" '
+            # Conta seguida com sessão aberta neste momento (a aberta mais recentemente),
+            # ou "-". As sessões são numeradas pela ordem de abertura, por isso é a de maior número.
+            function owner(   pid, best) {
+                best = 0
+                for (pid in open_session)
+                    if (open_session[pid] > best) best = open_session[pid]
+                return best ? s_user[best] : "-"
+            }
+            BEGIN {
+                n = split(users, list, " ")
+                # tracked[conta] = grupo da conta (origin): suspicious (3.4) ou created
+                for (i = 1; i <= n; i++) tracked[list[i]] = "suspicious"
+            }
+            # Conta criada: "... useradd[35590]: new user: name=sysupdate, UID=0, GID=0, home=/root, shell=/bin/bash, from=/dev/pts/2"
             $3 ~ /^useradd\[/ && index($0, "new user:") {
                 name = "-"; uid = "-"; details = ""
                 for (i = 6; i <= NF; i++) {
@@ -669,15 +657,59 @@ detect_account_changes() {
                         details = details (details == "" ? "" : " ") value
                 }
                 if (details == "") details = "-"
-                print $1 ",created," name "," uid "," details
+                print "account," $1 ",created," name "," uid "," owner() "," details
+                # a conta criada passa a ser seguida (se já era suspeita da 3.4, fica nesse grupo)
+                if (!(name in tracked)) tracked[name] = "created"
                 next
             }
-            # "... passwd[35600]: pam_unix(passwd:chauthtok): password changed for sysupdate"
+            # Password alterada: "... passwd[35600]: pam_unix(passwd:chauthtok): password changed for sysupdate"
             $3 ~ /^passwd\[/ && index($0, "password changed for") {
-                print $1 ",password," $NF ",-,-"
+                print "account," $1 ",password," $NF ",-," owner() ",-"
+                next
+            }
+            # Início de sessão: "... sshd[35410]: Accepted password for rfaria from 192.0.2.77 port 36513 ssh2"
+            # (user = campo antes de "from", IP = campo depois)
+            $3 ~ /^sshd\[/ && $4 == "Accepted" {
+                for (i = 5; i < NF; i++)
+                    if ($i == "from") break
+                if ($(i - 1) in tracked) {
+                    n_sessions++
+                    s_user[n_sessions]  = $(i - 1)
+                    s_origin[n_sessions] = tracked[$(i - 1)]
+                    s_ip[n_sessions]    = $(i + 1)
+                    s_start[n_sessions] = $1
+                    s_end[n_sessions]   = "-"
+                    open_session[$3] = n_sessions
+                }
+                next
+            }
+            # Fim de sessão: "session closed" escrito pelo mesmo processo sshd
+            ($3 in open_session) && index($0, "session closed") {
+                s_end[open_session[$3]] = $1
+                delete open_session[$3]
+                next
+            }
+            # Comando sudo de uma conta seguida: "... sudo: rfaria : TTY=pts/2 ; ... COMMAND=/usr/bin/cat /etc/shadow"
+            $3 == "sudo:" && ($4 in tracked) && index($0, "COMMAND=") {
+                # tudo o que vem depois de "COMMAND=" (8 caracteres)
+                print "sudo," $4 "," tracked[$4] "," $1 "," substr($0, index($0, "COMMAND=") + 8)
+            }
+            # As sessões são escritas no fim, pela ordem de abertura
+            END {
+                for (k = 1; k <= n_sessions; k++)
+                    print "session," s_user[k] "," s_origin[k] "," s_ip[k] "," s_start[k] "," s_end[k]
             }
         ' "$EVENTS_FILE"
     )
+
+    # Separa as linhas pelo tipo: ${line%%,*} = 1.ª coluna, ${line#*,} = o resto
+    for line in "${results[@]}"; do
+        case "${line%%,*}" in
+            session) SESSION_RESULTS+=("${line#*,}") ;;
+            sudo)    SUDO_RESULTS+=("${line#*,}") ;;
+            account) ACCOUNT_RESULTS+=("${line#*,}") ;;
+        esac
+    done
 }
 
 # Imprime o relatório a partir dos arrays de resultados das detect_*
@@ -786,35 +818,48 @@ print_report() {
         done
     fi
 
-    local start end command
+    local start end command origin group title found
 
-    echo
-    echo "=== Suspicious sessions (logins from section above) ==="
-    if [[ "${#SESSION_RESULTS[@]}" -eq 0 ]]; then
-        echo "No suspicious sessions."
-    else
+    # As contas seguidas são de dois grupos (coluna origin): suspicious (login da 3.4)
+    # e created (criadas no log). Cada grupo tem as suas secções de sessões e de sudo.
+    for group in suspicious created; do
+        if [[ "$group" == "suspicious" ]]; then
+            title="suspicious accounts (successful login after failures)"
+        else
+            title="accounts created in the log"
+        fi
+
+        echo
+        echo "=== Sessions of $title ==="
+        found=0
         for line in "${SESSION_RESULTS[@]}"; do
-            IFS=, read -r user ip start end <<< "$line"
-            echo "User: $user"
-            echo "  IP:    $ip"
-            echo "  Start: $start"
-            echo "  End:   $end"
+            IFS=, read -r user origin ip start end <<< "$line"
+            if [[ "$origin" == "$group" ]]; then
+                echo "$start -> $end $user from $ip"
+                found=1
+            fi
         done
-    fi
+        if [[ "$found" -eq 0 ]]; then
+            echo "No sessions of $title."
+        fi
 
-    echo
-    echo "=== Sudo commands in suspicious sessions ==="
-    if [[ "${#SUDO_RESULTS[@]}" -eq 0 ]]; then
-        echo "No sudo commands in suspicious sessions."
-    else
+        echo
+        echo "=== Sudo commands of $title ==="
+        found=0
         for line in "${SUDO_RESULTS[@]}"; do
             # command é a última variável: fica com o resto da linha, mesmo com vírgulas
-            IFS=, read -r user time command <<< "$line"
-            echo "$time $user: $command"
+            IFS=, read -r user origin time command <<< "$line"
+            if [[ "$origin" == "$group" ]]; then
+                echo "$time $user: $command"
+                found=1
+            fi
         done
-    fi
+        if [[ "$found" -eq 0 ]]; then
+            echo "No sudo commands of $title."
+        fi
+    done
 
-    local action account uid details
+    local action account uid by details
 
     echo
     echo "=== Account changes (useradd / passwd) ==="
@@ -822,17 +867,21 @@ print_report() {
         echo "No account changes detected."
     else
         for line in "${ACCOUNT_RESULTS[@]}"; do
-            IFS=, read -r time action account uid details <<< "$line"
+            IFS=, read -r time action account uid by details <<< "$line"
+            # by = "-": nenhuma conta seguida tinha sessão aberta
+            if [[ "$by" == "-" ]]; then
+                by="unknown"
+            fi
             case "$action" in
                 created)
-                    echo "$time account created: $account (UID=$uid $details)"
+                    echo "$time account created: $account (UID=$uid $details) by $by"
                     # UID 0 numa conta que não é root = outra conta com privilégios de root
                     if [[ "$uid" == "0" && "$account" != "root" ]]; then
                         echo "  WARNING: UID 0 gives $account root privileges"
                     fi
                     ;;
                 password)
-                    echo "$time password changed: $account"
+                    echo "$time password changed: $account by $by"
                     ;;
             esac
         done
@@ -849,7 +898,6 @@ main() {
     detect_success_after_failures
     detect_most_active
     detect_what_happened
-    detect_account_changes
     print_report
 
     echo "TODO: implement analyze_auth.sh" >&2

@@ -11,7 +11,7 @@ Managing and Auditing a Company Linux Server (`srv-files01`).
   sudo apt update
   sudo apt install -y acl
   ```
-  *(Adicionar aqui quaisquer outros pacotes usados durante o desenvolvimento.)*
+  *(No additional external packages are required beyond standard Ubuntu 26.04 LTS userland tools: Bash, GNU coreutils, `shadow`/`passwd`, `tar`, `procps`, and `iconv`.)*
 
 ## Project Structure
 
@@ -27,6 +27,13 @@ Managing and Auditing a Company Linux Server (`srv-files01`).
 ```bash
 sudo ./part1/provision.sh [--dry-run] <employees.csv> <access-policy.csv>
 ```
+
+Run the automated Part 1 unit/`--dry-run` tests as a normal user:
+```bash
+for t in tests/part1/test_phase*.sh; do bash "$t"; done
+```
+
+Changes are logged with timestamps to `/var/log/provision.log`, initial random passwords (`0600`, `root` only) are stored in `/root/initial-passwords.txt`, assigned username history is persisted in `/var/lib/provision/usernames.txt` (never reused), and offboarded home archives are written to `/srv/archive/`. Exit codes are `0` (everything applied), `1` (fatal error, nothing changed), and `2` (completed with rejected CSV rows).
 
 ### Part 2 — Daily Security Audit
 

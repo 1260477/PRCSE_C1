@@ -200,3 +200,33 @@ O `provision.sh` segue uma abordagem **fail-fast na estrutura e resiliente nos d
 - `getfacl -p --omit-header <alvo>`: mostra as ACLs sem cabeçalho `# file:` e preservando o caminho completo (`-p`), ideal para comparação automática.
 - `find "$folder" -mindepth 1 -print0` com `while IFS= read -r -d '' item`: percorre ficheiros/pastas de forma segura mesmo que tenham espaços no nome (`-print0` + `-d ''` usa NUL como separador).
 - `(IFS=','; echo "${arr[*]}")`: junta os elementos de um array com vírgulas dentro de uma *subshell* `( ... )` para não alterar o `IFS` global do script.
+
+---
+
+## Fase 5 — Testes e Validação
+
+### O que foi validado e porquê
+1. **Bateria automatizada em `tests/part1/` (90 testes em `--dry-run` e unitários):**
+   - `test_phase0.sh` (**14/14**): CLI (`-h`/`--help`), rejeição de argumentos inválidos (`exit 1`), exigência de `root` fora de `--dry-run`, cabeçalhos trocados/vazios e `exit 2` nos CSVs reais (`employees.csv` e `employees_v2.csv`) por conterem linhas inválidas intencionais.
+   - `test_phase1.sh` (**17/17**): limpeza de UTF-8 BOM + CRLF + espaços, descoberta dinâmica de departamentos, rejeição de linhas (`exit 2`), normalização de acentos/apóstrofos (`LC_ALL=C.UTF-8 iconv`) e colisões por ordem do CSV (`jsilva,jsilva2,jsilva3`).
+   - `test_phase2.sh` (**22/22**): criação de grupos, exclusão de `public` como grupo, `generate_password` (16 chars), `chage -M 180 -W 14`, expiração `chage -E` apenas em `intern`, pertença a `managers` e `sudo` exclusivo a `it` ativo não-`intern`.
+   - `test_phase3.sh` (**8/8**): `left` sem conta ignorado, `left` com conta bloqueado/arquivado/removido e utilizador gerido ausente do CSV a gerar apenas aviso sem remoção.
+   - `test_phase4.sh` (**14/14**): criação de `/srv/company` (`0711`) e pastas `2770`, *fallback* para `root` sem `rwx`, travessia `--x` na pasta-pai, exceção `r-x` de `intern`, exclusão de subpastas com política própria e idempotência.
+   - `test_phase5_synthetic.sh` (**15/15**): 2.º conjunto sintético (`synth_mkt`, `synth_ops`, `synth_rnd`) para comprovar zero *hard-coding* de departamentos, pastas ou regras.
+
+2. **Validação real na VM (Ubuntu Server 26.04 LTS, após snapshot):**
+   - **1.ª execução (`employees.csv`):** `EXIT_CODE=2` (4 linhas rejeitadas: 34, 35, 36, 40), `/root/initial-passwords.txt` criado com `0600` (`root:root`) e **33 linhas**, `/var/lib/provision/usernames.txt` com `0600`, `/var/log/provision.log` registado, `sudo` apenas com `hcosteira,jpereira,tmartins,hferreira`, `chage -l` validado (`dmoreira` expira em `Jan 31, 2027`, `jpereira` em `never`, ambos `180/14` e troca obrigatória no 1.º login).
+   - **ACLs reais (`getfacl`):** `/srv/company/hr` (`root:hr`, `flags: -s-`, `user:fmarques:r-x`, `group:finance:--x` só na ACL de acesso e fora das *default ACLs*, `other::---`) e `/srv/company/hr/payroll` (`root:hr`, `flags: -s-`, `group:finance:r-x`, `user:fmarques:r-x`). Um utilizador sem permissão (`hcosteira`) recebeu `Permission denied` ao tentar aceder a `payroll`.
+   - **Idempotência real:** 2.ª execução com `employees.csv` devolveu `No changes needed (already up to date).` e `EXIT_CODE=2`.
+   - **Atualização (`employees_v2.csv`):** `tmartins` (`E1004`) movido de `it` para `engineering` e removido de `sudo`; `mlopes` (`E1008`) manteve username e atualizou GECOS; `crocha` (`E1013`) entrou em `managers`; `dmoreira` (`E1017`) passou a `Account expires: never` e perdeu a restrição de estagiário em `sales`; `slima` (`E1011`) e `pramos` (`E1012`) foram arquivados em `/srv/archive/*.tar.gz` (`0600` dentro de `/srv/archive` `0700`) e removidos; `tcoelho` (`E1030`) gerou aviso e manteve a conta ativa; novos colaboradores (`asilva4`, `bnunes`, `cmendes2`) criados corretamente.
+   - **Integração com Parte 2 (`part2/audit.sh --full`):** devolveu `EXIT_CODE=0` com **zero desvios de política/ACLs** nas pastas, travessia `--x`, estagiários ou contas geridas (reportou apenas `[SUDO] hcosteira`, `[PWDEXP]` pela troca obrigatória inicial `chage -d 0` das contas recém-criadas e `[ACCTEXP] hcardoso` a 6 dias, correspondente ao estágio até `2026-11-27`).
+
+### Comandos rápidos para a defesa
+- Correr toda a bateria de testes da Parte 1:
+  ```bash
+  for t in tests/part1/test_phase*.sh; do bash "$t"; done
+  ```
+- Testar `--dry-run` nos ficheiros reais (deve devolver `exit 2` pelas linhas rejeitadas):
+  ```bash
+  ./part1/provision.sh --dry-run /caminho/employees.csv /caminho/access-policy.csv
+  ```

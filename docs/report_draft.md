@@ -259,23 +259,69 @@
 
 ## 4. Incident Report (Part 3)
 
-*(1 a 2 páginas, escrito manualmente. Os factos vêm do output da script (`part3/output.txt`, gerado a partir dos logs fornecidos); a análise e as recomendações são nossas.)*
+Factos retirados de `part3/output.txt` e das linhas correspondentes dos logs analisados (26/10 00:11 → 30/10 23:17). Todas as horas em UTC.
 
 ### 4.1 O que aconteceu e quando
 
-*(Resumo cronológico do período analisado (26–30 out). Fonte: secção "Timeline" de `part3/output.txt`: dois brute force (203.0.113.45, 203.0.113.118), um password spray (198.51.100.23) e o login de `rfaria` a partir de 192.0.2.77 depois de 43 falhas.)*
+| Quando | Origem | Evento | Resultado |
+| :--- | :--- | :--- | :--- |
+| 27/10 02:13–02:41 | 203.0.113.45 | 587 passwords falhadas (sobretudo `root`, `admin`, `ubuntu`) | Nenhum login |
+| 28/10 13:05–13:49 | 198.51.100.23 | Password spray: 26 usernames, 25 existentes no servidor | Nenhum login |
+| 28/10 16:40–16:43 | 203.0.113.118 | 70 passwords falhadas (sobretudo `admin`, `git`, `jenkins`) | Nenhum login |
+| 29/10 20:58–21:36 | 192.0.2.77 | 43 tentativas falhadas, 38 delas a `rfaria` | Login de `rfaria` com password às 21:36:47 |
+| 29/10 21:36–21:53 | 192.0.2.77 | Sessão de `rfaria`: 7 comandos via `sudo` (ver 4.2) | Criada a conta `sysupdate` com UID 0 |
+| 30/10 03:12–03:19 | 192.0.2.80 | Login de `sysupdate` com password, sessão SFTP | Sessão com UID 0 |
+
+As 4 sessões anteriores de `rfaria` no período (26–29/10) vieram todas de 10.20.3.14.
 
 ### 4.2 O que o atacante fez
 
-*(Ações na sessão de `rfaria` e o acesso posterior como `sysupdate`. Fonte: secções de sessões, sudo e alterações de conta de `part3/output.txt`.)*
+Comandos executados na sessão de `rfaria` (terminal `pts/2`), todos como `root` via `sudo`:
+
+| Hora | Comando | Efeito técnico |
+| :--- | :--- | :--- |
+| 21:37:05 | `sudo -l` | Lista os comandos que `rfaria` pode executar com `sudo` |
+| 21:38:20 | `cat /etc/shadow` | Mostra no terminal os hashes das passwords de todas as contas |
+| 21:40:43 | `useradd -o -u 0 -g 0 -M -d /root -s /bin/bash sysupdate` | Cria a conta `sysupdate` com UID e GID 0 (os de `root`), home `/root` e shell interativa (confirmado pelo `useradd` às 21:40:44) |
+| 21:41:08 | `passwd sysupdate` | Define a password de `sysupdate` (confirmado às 21:41:15) |
+| 21:43:33 | `tar czf /tmp/.syscache.tgz /srv/company/finance /srv/company/hr` | Cria em `/tmp` um arquivo comprimido com o conteúdo das duas diretorias |
+| 21:48:13 | `chmod -R o+rwx /srv/company/hr/payroll` | Dá leitura, escrita e execução a todos os utilizadores em `payroll` e em todo o seu conteúdo |
+| 21:49:09 | `crontab -l` | Lista as tarefas agendadas de `root` |
+
+A sessão terminou às 21:53:48. A 30/10 às 03:12:30, `sysupdate` entrou com password a partir de 192.0.2.80 e pediu o subsistema SFTP; a sessão terminou às 03:19:22.
+
+Os logs não mostram o output dos comandos, que ficheiros foram transferidos por SFTP, nem se `/tmp/.syscache.tgz` saiu do servidor.
 
 ### 4.3 Contas e dados afetados
 
-*(Contas comprometidas ou criadas e ficheiros/diretorias expostos ou alterados, com o impacto de cada um.)*
+| Conta | Situação |
+| :--- | :--- |
+| `rfaria` (UID 1005) | Login com password a partir de 192.0.2.77; executou comandos como `root` via `sudo` |
+| `sysupdate` (UID 0) | Criada na sessão de `rfaria`, com password definida; usada a partir de 192.0.2.80. Com UID 0 tem os mesmos privilégios de `root` |
+| Todas as contas | Hashes das passwords mostrados por `cat /etc/shadow` |
+
+| Dados | Efeito |
+| :--- | :--- |
+| `/etc/shadow` | Conteúdo lido |
+| `/srv/company/finance`, `/srv/company/hr` | Copiados para `/tmp/.syscache.tgz` |
+| `/srv/company/hr/payroll` | Leitura, escrita e remoção possíveis por qualquer utilizador local |
+| Sistema de ficheiros (SFTP de `sysupdate`) | Acesso com UID 0; o log não regista o que foi lido ou alterado |
+
+As restantes contas visadas (`root`, `admin`, `ubuntu`, etc., e os 25 usernames do password spray) não tiveram nenhum login com sucesso a partir dos IPs dos ataques. Os logs não mostram o estado atual do servidor (se `/tmp/.syscache.tgz` ainda existe e se as permissões de `payroll` continuam alteradas); ver 4.4.
 
 ### 4.4 O que o `audit.sh` (Parte 2) teria reportado na manhã seguinte
 
-*(Achados `NEW` que as checks da Parte 2 teriam gerado com o estado do servidor depois do ataque. Confirmar com o `audit.sh` final.)*
+Execução de 30/10 às 06:00 (`audit.cron`), comparada com a de 29/10 às 06:00, anterior ao login de `rfaria` a partir de 192.0.2.77:
+
+| Ocorrência `NEW` | Causa (4.2) |
+| :--- | :--- |
+| `[UID0] sysupdate: UID 0` | `useradd -o -u 0 ... sysupdate` |
+| `[WORLDW] /srv/company/hr/payroll: escrita permitida a outros`, e uma linha igual por cada ficheiro e subpasta dentro de `payroll` | `chmod -R o+rwx /srv/company/hr/payroll` |
+| `[POLICY] /srv/company/hr/payroll: permissões concedidas a others (...)`, e `[POLICY] <ficheiro>: acesso de others (rwx)` por cada ficheiro dentro de `payroll` | `chmod -R o+rwx /srv/company/hr/payroll` (a política exige `other::---`) |
+
+Os checks de `sudo`, passwords vazias e expiração não têm ocorrências novas: os logs não mostram alterações a grupos, a password de `sysupdate` foi definida às 21:41:15 e a conta foi criada sem prazo de expiração (assumindo o `PASS_MAX_DAYS` por omissão do Ubuntu).
+
+O `audit.sh` verifica o estado do sistema, não os logs, por isso não reporta o login de `rfaria`, o `cat /etc/shadow`, a sessão SFTP nem o `crontab -l`. Também não reporta `/tmp/.syscache.tgz`: está fora de `/srv/company` e, com a `umask` por omissão, o `tar` cria-o com modo `0644`, que não é world-writable.
 
 ### 4.5 O que deve ser feito agora
 
@@ -283,7 +329,16 @@
 
 ### 4.6 O que o teria prevenido
 
-*(Medidas que teriam impedido ou detetado mais cedo cada fase do ataque.)*
+| Facto | Medida |
+| :--- | :--- |
+| `rfaria` entrou com password, a partir de um IP externo, depois de 43 falhas do mesmo IP | Só autenticação por chave (`PasswordAuthentication no`); bloqueio após N falhas (`fail2ban` por IP, `pam_faillock` por conta) |
+| As 4 sessões anteriores de `rfaria` vieram de 10.20.3.14 | SSH só a partir da rede interna ou VPN (firewall ou `AllowUsers rfaria@10.20.*`); alerta para login a partir de um IP nunca usado por essa conta (a deteção 3.4, mas em tempo real) |
+| `rfaria` executou `useradd`, `cat /etc/shadow`, `tar` e `chmod` como `root` | `sudo` com privilégio mínimo: só os comandos necessários à função de cada utilizador |
+| Criada `sysupdate` com UID 0 | `auditd` em `/etc/passwd` e `/etc/shadow` com alerta imediato; o `audit.sh` das 06:00 só a reportaria cerca de 8 h depois |
+| `sysupdate` entrou com password a partir de 192.0.2.80 | `AllowGroups` no `sshd` com uma lista fechada de grupos: uma conta nova fora desses grupos não entraria |
+| `chmod -R o+rwx` em `payroll` | Monitorização de integridade (`AIDE` ou `auditd`) em `/srv/company` |
+
+Os IPs dos ataques de 27 e 28/10 são diferentes de 192.0.2.77: bloqueá-los na altura não teria impedido o login de 29/10.
 
 ---
 

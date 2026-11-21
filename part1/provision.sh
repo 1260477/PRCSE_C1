@@ -12,6 +12,13 @@ readonly LOG_FILE="/var/log/provision.log"
 # Registo persistente de usernames já atribuídos (nunca reutilizar, mesmo após offboarding)
 readonly USERNAME_HISTORY_FILE="/var/lib/provision/usernames.txt"
 
+# Ficheiro onde ficam guardadas as passwords iniciais das novas contas (só root lê)
+readonly INITIAL_PASSWORDS_FILE="/root/initial-passwords.txt"
+
+# Diretórios usados no offboarding e nas pastas partilhadas
+readonly ARCHIVE_DIR="/srv/archive"
+readonly COMPANY_DIR="/srv/company"
+
 # Variáveis globais para opções, caminhos dos CSVs e contadores de estado
 DRY_RUN=0
 EMP_CSV=""
@@ -32,6 +39,9 @@ VALID_DEPARTMENTS=()
 readonly VALID_ROLES=("staff" "manager" "intern")
 readonly VALID_STATUSES=("active" "left")
 
+# Grupos globais obrigatórios além dos departamentos (Secção 1.2)
+readonly GLOBAL_GROUPS=("employees" "managers")
+
 # Estruturas em memória para os funcionários válidos lidos de employees.csv:
 # - EMP_IDS guarda os employee_id pela ordem do ficheiro
 # - Os dicionários abaixo guardam os dados normalizados de cada employee_id
@@ -48,8 +58,8 @@ declare -A EMP_USERNAME
 declare -A USED_USERNAMES
 
 # Utilizadores geridos já existentes no sistema (identificados por "(E...)" no GECOS)
-declare -A EXISTING_EMP_USER
-declare -A EXISTING_EMP_GECOS
+declare -A EXISTING_EMP_USER=()
+declare -A EXISTING_EMP_GECOS=()
 
 # Mostra as instruções de utilização do script
 usage() {
@@ -564,6 +574,669 @@ record_used_username() {
     fi
 }
 
+# Garante que existem todos os grupos necessários: 1 por departamento + employees + managers
+ensure_groups() {
+    local target_groups=()
+    local grp
+
+    # Junta os departamentos válidos e os grupos globais sem duplicados
+    for grp in "${VALID_DEPARTMENTS[@]}" "${GLOBAL_GROUPS[@]}"; do
+        if [[ ${#target_groups[@]} -eq 0 ]] || ! in_array "$grp" "${target_groups[@]}"; then
+            target_groups+=("$grp")
+        fi
+    done
+
+    # Cria cada grupo apenas se ainda não existir no sistema (idempotência)
+    for grp in "${target_groups[@]}"; do
+        if ! getent group "$grp" >/dev/null 2>&1; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                groupadd "$grp"
+            fi
+            log_change "Created group '$grp'"
+        fi
+    done
+}
+
+# Gera uma password aleatória com 16 caracteres (sem ':' para não quebrar o chpasswd)
+generate_password() {
+    head -c 256 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9@#%^*_+=-' | cut -c1-16
+}
+
+# Guarda o par username:password em /root/initial-passwords.txt com permissões 0600
+save_initial_password() {
+    local username="$1"
+    local password="$2"
+
+    if [[ ! -f "$INITIAL_PASSWORDS_FILE" ]]; then
+        touch "$INITIAL_PASSWORDS_FILE"
+    fi
+    chmod 0600 "$INITIAL_PASSWORDS_FILE"
+    printf '%s:%s\n' "$username" "$password" >> "$INITIAL_PASSWORDS_FILE"
+}
+
+# Garante que a conta tem expiração de password de 180 dias e aviso de 14 dias
+ensure_password_policy() {
+    local username="$1"
+    local is_new="$2"
+    local needs_update=0
+
+    if [[ "$is_new" -eq 1 ]]; then
+        needs_update=1
+    else
+        # chage -l lê /etc/shadow (só root); se falhar em --dry-run sem root, ignora com segurança
+        local chage_out
+        if chage_out="$(LC_ALL=C chage -l "$username" 2>/dev/null)"; then
+            local max_days warn_days
+            max_days="$(echo "$chage_out" | awk -F': ' '/Maximum number of days between password change/{print $2}')"
+            warn_days="$(echo "$chage_out" | awk -F': ' '/Number of days of warning before password expires/{print $2}')"
+            if [[ "$max_days" != "180" || "$warn_days" != "14" ]]; then
+                needs_update=1
+            fi
+        fi
+    fi
+
+    if [[ "$needs_update" -eq 1 ]]; then
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            chage -M 180 -W 14 "$username"
+        fi
+        log_change "Set password aging for '$username' (max 180 days, warn 14 days)"
+    fi
+}
+
+# Aplica expiração de conta para intern (chage -E <end_date>) e remove para staff/manager (chage -E -1)
+ensure_account_expiry() {
+    local username="$1"
+    local role="$2"
+    local end_date="$3"
+    local is_new="$4"
+
+    if [[ "$role" == "intern" ]]; then
+        local needs_update=0
+        if [[ "$is_new" -eq 1 ]]; then
+            needs_update=1
+        else
+            local chage_out
+            if chage_out="$(LC_ALL=C chage -l "$username" 2>/dev/null)"; then
+                local exp_raw current_exp=""
+                exp_raw="$(echo "$chage_out" | awk -F': ' '/Account expires/{print $2}')"
+                if [[ "$exp_raw" != "never" && -n "$exp_raw" ]]; then
+                    current_exp="$(date -d "$exp_raw" '+%Y-%m-%d' 2>/dev/null || true)"
+                fi
+                if [[ "$current_exp" != "$end_date" ]]; then
+                    needs_update=1
+                fi
+            fi
+        fi
+
+        if [[ "$needs_update" -eq 1 ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                chage -E "$end_date" "$username"
+            fi
+            log_change "Set account expiry for intern '$username' to $end_date"
+        fi
+    else
+        # Contas novas não-intern já nascem sem expiração; só verifica contas existentes
+        if [[ "$is_new" -eq 0 ]]; then
+            local chage_out
+            if chage_out="$(LC_ALL=C chage -l "$username" 2>/dev/null)"; then
+                local exp_raw
+                exp_raw="$(echo "$chage_out" | awk -F': ' '/Account expires/{print $2}')"
+                if [[ "$exp_raw" != "never" && -n "$exp_raw" ]]; then
+                    if [[ "$DRY_RUN" -eq 0 ]]; then
+                        chage -E -1 "$username"
+                    fi
+                    log_change "Removed account expiry for '$username' (role: $role)"
+                fi
+            fi
+        fi
+    fi
+}
+
+# Sincroniza pertença exata a grupos geridos (departamento atual + employees + managers se manager)
+ensure_user_groups() {
+    local username="$1"
+    local dept="$2"
+    local role="$3"
+    local is_new="$4"
+
+    local target_groups=("$dept" "employees")
+    if [[ "$role" == "manager" ]]; then
+        target_groups+=("managers")
+    fi
+
+    local current_groups=()
+    if [[ "$is_new" -eq 0 ]]; then
+        read -r -a current_groups <<< "$(id -nG "$username")"
+    fi
+
+    # Adiciona grupos em falta
+    local grp
+    for grp in "${target_groups[@]}"; do
+        if [[ ${#current_groups[@]} -eq 0 ]] || ! in_array "$grp" "${current_groups[@]}"; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                usermod -aG "$grp" "$username"
+            fi
+            log_change "Added '$username' to group '$grp'"
+        fi
+    done
+
+    # Remove grupos geridos antigos (ex: mudou de departamento ou deixou de ser manager)
+    if [[ "$is_new" -eq 0 && ${#current_groups[@]} -gt 0 ]]; then
+        local managed_groups=("${VALID_DEPARTMENTS[@]}" "${GLOBAL_GROUPS[@]}")
+        for grp in "${current_groups[@]}"; do
+            if in_array "$grp" "${managed_groups[@]}" && ! in_array "$grp" "${target_groups[@]}"; then
+                if [[ "$DRY_RUN" -eq 0 ]]; then
+                    gpasswd -d "$username" "$grp" >/dev/null
+                fi
+                log_change "Removed '$username' from group '$grp'"
+            fi
+        done
+    fi
+}
+
+# Cria contas novas para funcionários ativos e atualiza o GECOS se o nome mudou
+ensure_users() {
+    if [[ ${#EMP_IDS[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    local emp_id
+    for emp_id in "${EMP_IDS[@]}"; do
+        local status="${EMP_STATUS["$emp_id"]}"
+        if [[ "$status" != "active" ]]; then
+            continue
+        fi
+
+        local username="${EMP_USERNAME["$emp_id"]}"
+        local first="${EMP_FIRST["$emp_id"]}"
+        local last="${EMP_LAST["$emp_id"]}"
+        local expected_gecos="${first} ${last} (${emp_id})"
+        local home_dir="/home/${username}"
+        local is_new=0
+
+        # Se já existe uma conta gerida para este employee_id, verifica apenas se o GECOS mudou
+        if [[ -n "${EXISTING_EMP_USER["$emp_id"]:-}" ]]; then
+            local current_gecos="${EXISTING_EMP_GECOS["$emp_id"]:-}"
+            if [[ "$current_gecos" != "$expected_gecos" ]]; then
+                if [[ "$DRY_RUN" -eq 0 ]]; then
+                    usermod -c "$expected_gecos" "$username"
+                fi
+                log_change "Updated GECOS for '$username' ($emp_id): '$current_gecos' -> '$expected_gecos'"
+            fi
+        else
+            is_new=1
+            # Conta nova: cria com home /home/<username> (0700), shell /bin/bash e comment First Last (ID)
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                useradd -m -d "$home_dir" -s /bin/bash -c "$expected_gecos" "$username"
+                chmod 0700 "$home_dir"
+
+                # Gera password aleatória (>= 16 chars), aplica via chpasswd, força troca no 1.º login e guarda em 0600
+                local init_pass
+                init_pass="$(generate_password)"
+                printf '%s:%s\n' "$username" "$init_pass" | chpasswd
+                chage -d 0 "$username"
+                save_initial_password "$username" "$init_pass"
+
+                record_used_username "$username"
+                EXISTING_EMP_USER["$emp_id"]="$username"
+                EXISTING_EMP_GECOS["$emp_id"]="$expected_gecos"
+            fi
+            log_change "Created user '$username' ($emp_id) with home '$home_dir' (password set, must change at first login)"
+        fi
+
+        ensure_password_policy "$username" "$is_new"
+        ensure_account_expiry "$username" "${EMP_ROLE["$emp_id"]}" "${EMP_END_DATE["$emp_id"]:-}" "$is_new"
+        ensure_user_groups "$username" "${EMP_DEPT["$emp_id"]}" "${EMP_ROLE["$emp_id"]}" "$is_new"
+    done
+}
+
+# Garante que apenas membros active não-intern do departamento 'it' pertencem ao grupo sudo
+ensure_sudo_access() {
+    if ! getent group sudo >/dev/null 2>&1; then
+        return 0
+    fi
+
+    # Lista de usernames elegíveis para sudo segundo o CSV atual
+    local sudo_eligible=()
+    local emp_id
+    for emp_id in "${EMP_IDS[@]}"; do
+        if [[ "${EMP_STATUS["$emp_id"]}" == "active" && \
+              "${EMP_DEPT["$emp_id"]}" == "it" && \
+              "${EMP_ROLE["$emp_id"]}" != "intern" ]]; then
+            sudo_eligible+=("${EMP_USERNAME["$emp_id"]}")
+        fi
+    done
+
+    # Lê os membros atuais do grupo sudo
+    local sudo_members_csv
+    sudo_members_csv="$(getent group sudo | awk -F: '{print $4}')"
+    local current_sudo=()
+    if [[ -n "$sudo_members_csv" ]]; then
+        IFS=',' read -r -a current_sudo <<< "$sudo_members_csv"
+    fi
+
+    # Adiciona elegíveis que ainda não estejam em sudo
+    local user
+    for user in "${sudo_eligible[@]}"; do
+        if [[ ${#current_sudo[@]} -eq 0 ]] || ! in_array "$user" "${current_sudo[@]}"; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                usermod -aG sudo "$user"
+            fi
+            log_change "Added '$user' to 'sudo' group (active non-intern IT)"
+        fi
+    done
+
+    # Remove utilizadores geridos que estejam em sudo sem serem elegíveis
+    if [[ ${#current_sudo[@]} -gt 0 ]]; then
+        local managed_users=()
+        local key
+        for key in "${!EXISTING_EMP_USER[@]}"; do
+            managed_users+=("${EXISTING_EMP_USER["$key"]}")
+        done
+        for key in "${!EMP_USERNAME[@]}"; do
+            managed_users+=("${EMP_USERNAME["$key"]}")
+        done
+
+        for user in "${current_sudo[@]}"; do
+            [[ -z "$user" ]] && continue
+            if in_array "$user" "${managed_users[@]}"; then
+                if [[ ${#sudo_eligible[@]} -eq 0 ]] || ! in_array "$user" "${sudo_eligible[@]}"; then
+                    if [[ "$DRY_RUN" -eq 0 ]]; then
+                        gpasswd -d "$user" sudo >/dev/null
+                    fi
+                    log_change "Removed '$user' from 'sudo' group (not active non-intern IT)"
+                fi
+            fi
+        done
+    fi
+}
+
+# Trata o offboarding de utilizadores com status=left
+offboard_users() {
+    if [[ ${#EMP_IDS[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    local emp_id
+    for emp_id in "${EMP_IDS[@]}"; do
+        if [[ "${EMP_STATUS["$emp_id"]}" != "left" ]]; then
+            continue
+        fi
+
+        local username="${EXISTING_EMP_USER["$emp_id"]:-}"
+
+        # Passo 3.1: status=left sem conta Linux existente -> não faz nada
+        if [[ -z "$username" ]] || ! id "$username" >/dev/null 2>&1; then
+            continue
+        fi
+
+        # Passo 3.2: status=left com conta Linux existente -> offboarding completo e seguro
+        local today home_dir archive_path
+        today="$(date '+%Y-%m-%d')"
+        home_dir="$(getent passwd "$username" | cut -d: -f6)"
+        archive_path="${ARCHIVE_DIR}/${username}_${emp_id}_${today}.tar.gz"
+
+        # 1. Bloquear a conta e terminar sessões/processos ativos antes de mexer em ficheiros
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            # usermod -L bloqueia a password; chage -E 0 expira a conta (impede também login por chave SSH)
+            usermod -L "$username"
+            chage -E 0 "$username"
+            # Termina processos do utilizador (|| true evita abortar com set -e se não houver processos ativos)
+            pkill -TERM -u "$username" 2>/dev/null || true
+            sleep 1
+            pkill -KILL -u "$username" 2>/dev/null || true
+        fi
+        log_change "Locked account and terminated active sessions for '$username' ($emp_id)"
+
+        # 2. Arquivar pasta home em /srv/archive/<username>_<id>_<YYYY-MM-DD>.tar.gz (só root lê) e validar integridade
+        if [[ -n "$home_dir" && -d "$home_dir" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                # Garante que /srv/archive existe e só é acessível por root (0700)
+                mkdir -p "$ARCHIVE_DIR"
+                chown root:root "$ARCHIVE_DIR"
+                chmod 0700 "$ARCHIVE_DIR"
+
+                # Cria o .tar.gz relativo ao diretório pai da home para evitar caminhos absolutos dentro do tar
+                tar -czf "$archive_path" -C "$(dirname "$home_dir")" "$(basename "$home_dir")"
+                chown root:root "$archive_path"
+                chmod 0600 "$archive_path"
+
+                # Verifica integridade do gzip e da tabela de conteúdos do tar antes de apagar qualquer ficheiro
+                if ! gzip -t "$archive_path" || ! tar -tzf "$archive_path" >/dev/null 2>&1; then
+                    fatal "Archive integrity check failed for '$archive_path'; aborting offboarding of '$username'"
+                fi
+            fi
+            log_change "Archived home '$home_dir' to '$archive_path' (verified)"
+        fi
+
+        # 3. Mudar o dono dos ficheiros do utilizador em /srv/company para root (mantendo o grupo original)
+        if [[ -d "$COMPANY_DIR" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                # chown -h root (sem :grupo) altera apenas o owner e preserva o grupo; -h não segue symlinks
+                find "$COMPANY_DIR" -user "$username" -exec chown -h root {} +
+            fi
+            log_change "Reassigned files owned by '$username' in '$COMPANY_DIR' to root (group preserved)"
+        fi
+
+        # 4. Garantir que o username fica no histórico persistente (nunca reutilizar) e remover crontab, conta e home
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            record_used_username "$username"
+            # || true evita falha caso o utilizador não tenha nenhuma crontab configurada
+            crontab -r -u "$username" 2>/dev/null || true
+            # userdel -r remove a conta e a home; se falhar por não haver mail spool/home, garante remoção da conta
+            userdel -r "$username" 2>/dev/null || userdel "$username"
+        fi
+        log_change "Removed crontab, account, and home for '$username' ($emp_id)"
+    done
+}
+
+# Passo 3.3: Deteta utilizadores geridos ((E...) no GECOS) que desapareceram do CSV sem status=left
+warn_missing_users() {
+    if [[ ${#EXISTING_EMP_USER[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    local emp_id
+    for emp_id in "${!EXISTING_EMP_USER[@]}"; do
+        # Se o employee_id existe no sistema mas não aparece no CSV atual, apenas avisa (não remove)
+        if [[ -z "${EMP_STATUS["$emp_id"]:-}" ]]; then
+            local username="${EXISTING_EMP_USER["$emp_id"]}"
+            echo "Warning: Managed user '$username' ($emp_id) is missing from CSV without status=left; account NOT removed." >&2
+        fi
+    done
+}
+
+# Devolve o primeiro grupo com acesso rwx para uma pasta da política (ou 'root' se não existir nenhum)
+get_folder_group_owner() {
+    local folder="$1"
+    local rules="${POLICY_RULES["$folder"]:-}"
+    local entry grp acc
+
+    for entry in $rules; do
+        IFS=':' read -r grp acc <<< "$entry"
+        if [[ "$acc" == "rwx" ]]; then
+            echo "$grp"
+            return 0
+        fi
+    done
+
+    echo "root"
+}
+
+# Passo 4.1: Cria as pastas definidas em access-policy.csv com owner root,
+# group owner = 1.º grupo rwx, setgid ativo (g+s) e sem acesso para others (2770)
+ensure_shared_folders() {
+    # Garante a pasta raiz /srv/company (caso não esteja na política) com travessia mínima para não-root
+    if [[ ${#POLICY_FOLDERS[@]} -eq 0 ]] || ! in_array "$COMPANY_DIR" "${POLICY_FOLDERS[@]}"; then
+        if [[ ! -d "$COMPANY_DIR" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                mkdir -p "$COMPANY_DIR"
+                chown root:root "$COMPANY_DIR"
+                chmod 0711 "$COMPANY_DIR"
+            fi
+            log_change "Created company root '$COMPANY_DIR' (owner=root:root, mode=0711)"
+        fi
+    fi
+
+    local folder target_group
+    for folder in "${POLICY_FOLDERS[@]}"; do
+        target_group="$(get_folder_group_owner "$folder")"
+
+        if [[ ! -d "$folder" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                mkdir -p "$folder"
+                chown "root:$target_group" "$folder"
+                chmod 2770 "$folder"
+            fi
+            log_change "Created shared folder '$folder' (owner=root:$target_group, mode=2770)"
+            continue
+        fi
+
+        local current_owner current_group current_mode
+        current_owner="$(stat -c '%U' "$folder")"
+        current_group="$(stat -c '%G' "$folder")"
+        current_mode="$(stat -c '%a' "$folder")"
+
+        if [[ "$current_owner" != "root" || "$current_group" != "$target_group" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                chown "root:$target_group" "$folder"
+            fi
+            log_change "Updated ownership on '$folder' to root:$target_group"
+        fi
+
+        if [[ "$current_mode" != "2770" ]]; then
+            if [[ "$DRY_RUN" -eq 0 ]]; then
+                chmod 2770 "$folder"
+            fi
+            log_change "Updated base permissions on '$folder' to 2770"
+        fi
+    done
+}
+
+# Normaliza o output de getfacl -p --omit-header para comparação idempotente:
+# remove comentários (#...), linhas vazias e ordena as entradas
+normalize_getfacl() {
+    local target="$1"
+    getfacl -p --omit-header "$target" 2>/dev/null | sed 's/[[:space:]]*#.*$//' | grep -v '^$' | sort
+}
+
+# Passo 4.3: Devolve os grupos que precisam de travessia mínima (--x) nesta pasta
+# porque têm acesso a uma subpasta descendente, mas não têm regra nesta pasta-pai
+get_traversal_groups_for_folder() {
+    local parent_folder="$1"
+    local parent_rules="${POLICY_RULES["$parent_folder"]:-}"
+    local parent_groups=()
+    local entry grp acc
+
+    for entry in $parent_rules; do
+        IFS=':' read -r grp acc <<< "$entry"
+        parent_groups+=("$grp")
+    done
+
+    local traversal_groups=()
+    local sub sub_rules
+    for sub in "${POLICY_FOLDERS[@]}"; do
+        # Só interessa se sub for descendente estrito de parent_folder
+        if [[ "$sub" != "$parent_folder/"* ]]; then
+            continue
+        fi
+
+        sub_rules="${POLICY_RULES["$sub"]:-}"
+        for entry in $sub_rules; do
+            IFS=':' read -r grp acc <<< "$entry"
+            if [[ ${#parent_groups[@]} -gt 0 ]] && in_array "$grp" "${parent_groups[@]}"; then
+                continue
+            fi
+            if [[ ${#traversal_groups[@]} -eq 0 ]] || ! in_array "$grp" "${traversal_groups[@]}"; then
+                traversal_groups+=("$grp")
+            fi
+        done
+    done
+
+    if [[ ${#traversal_groups[@]} -gt 0 ]]; then
+        printf '%s\n' "${traversal_groups[@]}"
+    fi
+}
+
+# Passo 4.4: Devolve os usernames de estagiários (intern) ativos cujo departamento
+# tem acesso rwx nesta pasta (para receberem ACL individual r-x)
+get_folder_interns() {
+    local folder="$1"
+    local rules="${POLICY_RULES["$folder"]:-}"
+    local emp_id dept
+
+    for emp_id in "${EMP_IDS[@]}"; do
+        if [[ "${EMP_STATUS["$emp_id"]}" != "active" || "${EMP_ROLE["$emp_id"]}" != "intern" ]]; then
+            continue
+        fi
+
+        dept="${EMP_DEPT["$emp_id"]}"
+        # Verifica se "<dept>:rwx" consta nas regras desta pasta
+        if echo " $rules " | grep -qF " ${dept}:rwx "; then
+            echo "${EMP_USERNAME["$emp_id"]}"
+        fi
+    done
+}
+
+# Verifica se um caminho pertence a outra pasta da política mais específica do que owner_folder
+# (evita que setfacl em /srv/company/hr sobrescreva /srv/company/hr/payroll)
+is_under_other_policy_folder() {
+    local path="$1"
+    local owner_folder="$2"
+    local other
+
+    for other in "${POLICY_FOLDERS[@]}"; do
+        if [[ "$other" == "$owner_folder/"* ]]; then
+            if [[ "$path" == "$other" || "$path" == "$other/"* ]]; then
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+# Garante ACLs e default ACLs exatas numa pasta (com verificação idempotente prévia)
+sync_directory_acl() {
+    local target="$1"
+    local rules="$2"
+    local traversal_list="$3"
+    local interns_list="$4"
+
+    local access_entries=("u::rwx" "g::rwx" "o::---" "m::rwx")
+    local default_entries=("u::rwx" "g::rwx" "o::---" "m::rwx")
+    local expected_lines=("user::rwx" "group::rwx" "other::---" "mask::rwx" "default:user::rwx" "default:group::rwx" "default:other::---" "default:mask::rwx")
+
+    local entry grp acc
+    for entry in $rules; do
+        IFS=':' read -r grp acc <<< "$entry"
+        access_entries+=("g:${grp}:${acc}")
+        default_entries+=("g:${grp}:${acc}")
+        expected_lines+=("group:${grp}:${acc}" "default:group:${grp}:${acc}")
+    done
+
+    local tgrp
+    for tgrp in $traversal_list; do
+        access_entries+=("g:${tgrp}:--x")
+        expected_lines+=("group:${tgrp}:--x")
+    done
+
+    local intern_user
+    for intern_user in $interns_list; do
+        access_entries+=("u:${intern_user}:r-x")
+        default_entries+=("u:${intern_user}:r-x")
+        expected_lines+=("user:${intern_user}:r-x" "default:user:${intern_user}:r-x")
+    done
+
+    local expected_sorted
+    expected_sorted="$(printf '%s\n' "${expected_lines[@]}" | sort)"
+
+    local needs_update=0
+    if [[ ! -d "$target" ]]; then
+        needs_update=1
+    else
+        local current_sorted
+        current_sorted="$(normalize_getfacl "$target")"
+        if [[ "$current_sorted" != "$expected_sorted" ]]; then
+            needs_update=1
+        fi
+    fi
+
+    if [[ "$needs_update" -eq 1 ]]; then
+        local access_spec default_spec
+        access_spec="$(IFS=','; echo "${access_entries[*]}")"
+        default_spec="$(IFS=','; echo "${default_entries[*]}")"
+
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            setfacl -b "$target"
+            setfacl -m "$access_spec" "$target"
+            setfacl -d -m "$default_spec" "$target"
+        fi
+        log_change "Synchronized ACLs and default ACLs on '$target'"
+    fi
+}
+
+# Garante ACLs exatas num ficheiro regular existente (rwX/r-X para não dar +x indevido)
+sync_file_acl() {
+    local target="$1"
+    local rules="$2"
+    local interns_list="$3"
+
+    # Mantém x apenas se o ficheiro já for executável
+    local x_bit="-"
+    if [[ -x "$target" ]]; then
+        x_bit="x"
+    fi
+
+    local access_entries=("u::rw${x_bit}" "g::rw${x_bit}" "o::---" "m::rw${x_bit}")
+    local expected_lines=("user::rw${x_bit}" "group::rw${x_bit}" "other::---" "mask::rw${x_bit}")
+
+    local entry grp acc file_acc
+    for entry in $rules; do
+        IFS=':' read -r grp acc <<< "$entry"
+        if [[ "$acc" == "rwx" ]]; then
+            file_acc="rw${x_bit}"
+        else
+            file_acc="r-${x_bit}"
+        fi
+        access_entries+=("g:${grp}:${file_acc}")
+        expected_lines+=("group:${grp}:${file_acc}")
+    done
+
+    local intern_user
+    for intern_user in $interns_list; do
+        access_entries+=("u:${intern_user}:r-${x_bit}")
+        expected_lines+=("user:${intern_user}:r-${x_bit}")
+    done
+
+    local expected_sorted
+    expected_sorted="$(printf '%s\n' "${expected_lines[@]}" | sort)"
+    local current_sorted
+    current_sorted="$(normalize_getfacl "$target")"
+
+    if [[ "$current_sorted" != "$expected_sorted" ]]; then
+        local access_spec
+        access_spec="$(IFS=','; echo "${access_entries[*]}")"
+
+        if [[ "$DRY_RUN" -eq 0 ]]; then
+            setfacl -b "$target"
+            setfacl -m "$access_spec" "$target"
+        fi
+        log_change "Synchronized ACLs on existing file '$target'"
+    fi
+}
+
+# Passos 4.2, 4.3, 4.4, 4.5 e 4.6: Aplica ACLs da política, default ACLs,
+# travessia --x em pastas-pai, exceção r-x para interns e sincronização de conteúdo existente
+ensure_folder_acls() {
+    local folder rules traversal_list interns_list
+
+    for folder in "${POLICY_FOLDERS[@]}"; do
+        rules="${POLICY_RULES["$folder"]:-}"
+        traversal_list="$(get_traversal_groups_for_folder "$folder")"
+        interns_list="$(get_folder_interns "$folder")"
+
+        # Aplica ACLs exatas e default ACLs na própria pasta da política
+        sync_directory_acl "$folder" "$rules" "$traversal_list" "$interns_list"
+
+        # Passo 4.5: Se a pasta já existe, garante que subpastas e ficheiros já existentes seguem a política
+        if [[ -d "$folder" ]]; then
+            local item
+            while IFS= read -r -d '' item; do
+                # Não sobrescreve subpastas que tenham regra própria na política (ex: /srv/company/hr/payroll)
+                if is_under_other_policy_folder "$item" "$folder"; then
+                    continue
+                fi
+
+                if [[ -d "$item" ]]; then
+                    sync_directory_acl "$item" "$rules" "" "$interns_list"
+                elif [[ -f "$item" ]]; then
+                    sync_file_acl "$item" "$rules" "$interns_list"
+                fi
+            done < <(find "$folder" -mindepth 1 -print0)
+        fi
+    done
+}
+
 main() {
     parse_args "$@"
     check_pre_reqs
@@ -573,6 +1246,13 @@ main() {
     load_employees
     load_existing_users
     resolve_usernames
+    ensure_groups
+    ensure_users
+    ensure_sudo_access
+    offboard_users
+    warn_missing_users
+    ensure_shared_folders
+    ensure_folder_acls
 
     # Se nenhuma alteração foi feita (ou prevista em --dry-run), informa o utilizador
     if [[ "$CHANGES_MADE" -eq 0 ]]; then

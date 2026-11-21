@@ -11,7 +11,7 @@ Managing and Auditing a Company Linux Server (`srv-files01`).
   sudo apt update
   sudo apt install -y acl
   ```
-  *(Adicionar aqui quaisquer outros pacotes usados durante o desenvolvimento.)*
+  *(No additional external packages are required beyond standard Ubuntu 26.04 LTS userland tools: Bash, GNU coreutils, `shadow`/`passwd`, `tar`, `procps`, and `iconv`.)*
 
 ## Project Structure
 
@@ -28,18 +28,33 @@ Managing and Auditing a Company Linux Server (`srv-files01`).
 sudo ./part1/provision.sh [--dry-run] <employees.csv> <access-policy.csv>
 ```
 
+Run the automated Part 1 unit/`--dry-run` tests as a normal user:
+```bash
+for t in tests/part1/test_phase*.sh; do bash "$t"; done
+```
+
+Changes are logged with timestamps to `/var/log/provision.log`, initial random passwords (`0600`, `root` only) are stored in `/root/initial-passwords.txt`, assigned username history is persisted in `/var/lib/provision/usernames.txt` (never reused), and offboarded home archives are written to `/srv/archive/`. Exit codes are `0` (everything applied), `1` (fatal error, nothing changed), and `2` (completed with rejected CSV rows).
+
 ### Part 2 — Daily Security Audit
-Install the script, policy, and cron job:
+
+From the repository root, set `policy` to the supplied CSV (the example uses the VM home directory). Install the audit script, policy and daily 06:00 root cron job:
+
 ```bash
-sudo install -m 0700 part2/audit.sh /usr/local/sbin/audit.sh
+policy="$HOME/access-policy.csv"
+sudo install -o root -g root -m 0755 part2/audit.sh /usr/local/sbin/audit.sh
 sudo mkdir -p /etc/srv-files01
-sudo cp <access-policy.csv> /etc/srv-files01/access-policy.csv
-sudo install -m 0644 part2/audit.cron /etc/cron.d/audit
+sudo install -o root -g root -m 0644 "$policy" /etc/srv-files01/access-policy.csv
+sudo install -o root -g root -m 0644 part2/audit.cron /etc/cron.d/audit
 ```
-Run manually:
+
+Run the tests as a normal user on Ubuntu with the acl tools installed. Run the installed audit as root:
+
 ```bash
-sudo ./part2/audit.sh --policy <access-policy.csv> [--full] [--state-dir DIR] [--report-dir DIR]
+bash tests/part2/test_audit_checks.sh
+sudo /usr/local/sbin/audit.sh --policy /etc/srv-files01/access-policy.csv
 ```
+
+Daily reports are stored in `/var/log/audit/YYYY-MM-DD.txt` and state in `/var/lib/audit/state`. Override the directories with `--report-dir DIR` and `--state-dir DIR`. Use `--full` to print all current findings. Exit codes are 0 for a successful run without new findings (or a successful full listing), 1 for an error and 2 for new findings. Consult errors with `sudo journalctl -t prcse-audit`. The scripts use Bash, GNU userland, getfacl/setfacl (acl), flock/logger (util-linux) and cron for scheduling.
 
 ### Part 3 — Auth Log Analysis
 ```bash

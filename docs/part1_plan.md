@@ -5,7 +5,7 @@
 > 1. **Explicação do requisito:** O assistente explica o que o enunciado (`C1.pdf` + `contracts.md`) pede para este passo — **sem escrever código**.
 > 2. **A tua explicação:** Tu explicas o que entendes que é preciso fazer.
 > 3. **Análise crítica:** O assistente verifica criticamente a tua explicação (nunca assume que está tudo certo), valida o que está correto e aponta erros, omissões ou armadilhas.
-> 4. **Desenvolvimento:** Tu tentas implementar o passo (ou pedes ajuda/código ao assistente quando quiseres). **Usar sempre sintaxe Bash simples e legível, com comentários claros no código** (evitar expansões crípticas, já que tens de conseguir explicar cada linha na defesa).
+> 4. **Desenvolvimento:** Tu tentas implementar o passo (ou pedes ajuda/código ao assistente quando quiseres). **Usar sempre sintaxe Bash simples e legível (alinhada com [tp_reference.md](file:///home/hcosteira/Documents/C1/Resolucao/docs/tp_reference.md)), com comentários claros no código** (evitar expansões crípticas, já que tens de conseguir explicar cada linha na defesa).
 > 5. **Resumo e Enquadramento (`C1.pdf`):** O assistente explica o que foi feito no passo e verifica no `C1.pdf` se exige registo no `README.md`, `report.pdf` ou testes em `tests/part1/`.
 > 6. **Fecho de Fase:** Sempre que uma fase termina, atualizar o [part1_study_guide.md](file:///home/hcosteira/Documents/C1/Resolucao/docs/part1_study_guide.md) com as decisões, soluções e sintaxe explicada, e criar/correr os respetivos testes automatizados em `tests/part1/`.
 
@@ -42,41 +42,41 @@
 ---
 
 ## Fase 2 — Contas de Utilizador e Grupos (Secção 1.2)
-- [ ] **2.1** Criar grupos em falta: 1 por departamento + `employees` + `managers`.
-- [ ] **2.2** Criar novas contas com home `/home/<username>` (`0700`), shell `/bin/bash` e comment `First Last (ID)`.
-- [ ] **2.3** Gerar password aleatória (≥ 16 caracteres) para novas contas, guardar em `/root/initial-passwords.txt` (permissões `0600` só `root`), nunca imprimir no ecrã/log, e forçar troca no 1.º login (`chage -d 0`).
-- [ ] **2.4** Aplicar regra de expiração de password: 180 dias, aviso 14 dias antes (`chage -M 180 -W 14`).
-- [ ] **2.5** Aplicar expiração de conta para `intern` (`chage -E <end_date>`) e remover expiração se passar a `staff`/`manager` (`chage -E -1`).
-- [ ] **2.6** Sincronizar pertença exata a grupos (departamento atual + `employees` + `managers` se `manager`), adicionando novos e removendo antigos quando muda departamento/role.
-- [ ] **2.7** Aplicar regra `sudo`: apenas membros `active` não-intern do departamento `it` pertencem a `sudo` (remover qualquer outro).
+- [x] **2.1** Criar grupos em falta: 1 por departamento + `employees` + `managers`.
+- [x] **2.2** Criar novas contas com home `/home/<username>` (`0700`), shell `/bin/bash` e comment `First Last (ID)`.
+- [x] **2.3** Gerar password aleatória (≥ 16 caracteres) para novas contas, guardar em `/root/initial-passwords.txt` (permissões `0600` só `root`), nunca imprimir no ecrã/log, e forçar troca no 1.º login (`chage -d 0`).
+- [x] **2.4** Aplicar regra de expiração de password: 180 dias, aviso 14 dias antes (`chage -M 180 -W 14`).
+- [x] **2.5** Aplicar expiração de conta para `intern` (`chage -E <end_date>`) e remover expiração se passar a `staff`/`manager` (`chage -E -1`).
+- [x] **2.6** Sincronizar pertença exata a grupos (departamento atual + `employees` + `managers` se `manager`), adicionando novos e removendo antigos quando muda departamento/role.
+- [x] **2.7** Aplicar regra `sudo`: apenas membros `active` não-intern do departamento `it` pertencem a `sudo` (remover qualquer outro).
 
 ---
 
 ## Fase 3 — Offboarding e Desaparecimentos (Secção 1.5)
-- [ ] **3.1** Para `status = left` sem conta Linux existente: não fazer nada.
-- [ ] **3.2** Para `status = left` com conta existente:
-  - [ ] Bloquear conta e terminar sessões/processos ativos do utilizador.
-  - [ ] Arquivar home em `/srv/archive/<username>_<employee_id>_<YYYY-MM-DD>.tar.gz` (só `root` lê) e verificar integridade do `.tar.gz` antes de apagar qualquer ficheiro.
-  - [ ] Mudar dono dos ficheiros do utilizador em `/srv/company` para `root` (mantendo o grupo).
-  - [ ] Remover crontab, conta e pasta home.
-- [ ] **3.3** Detetar utilizadores geridos (com `(E...)` no comment) que desapareceram do CSV sem `status = left`: **não remover**, apenas imprimir aviso.
+- [x] **3.1** Para `status = left` sem conta Linux existente: não fazer nada.
+- [x] **3.2** Para `status = left` com conta existente:
+  - [x] Bloquear conta e terminar sessões/processos ativos do utilizador.
+  - [x] Arquivar home em `/srv/archive/<username>_<employee_id>_<YYYY-MM-DD>.tar.gz` (só `root` lê) e verificar integridade do `.tar.gz` antes de apagar qualquer ficheiro.
+  - [x] Mudar dono dos ficheiros do utilizador em `/srv/company` para `root` (mantendo o grupo).
+  - [x] Remover crontab, conta e pasta home.
+- [x] **3.3** Detetar utilizadores geridos (com `(E...)` no comment) que desapareceram do CSV sem `status = left`: **não remover**, apenas imprimir aviso.
 
 ---
 
 ## Fase 4 — Pastas Partilhadas e ACLs (Secção 1.3)
-- [ ] **4.1** Criar todas as pastas definidas em `access-policy.csv` (owner `root`, group owner = primeiro grupo com `rwx`, `setgid` ativo `g+s`, `others` sem acesso `---`).
-- [ ] **4.2** Aplicar ACLs exatas da política e *default ACLs* para herança de novos ficheiros/subpastas.
-- [ ] **4.3** Aplicar travessia mínima (`--x`) em pastas-pai quando um grupo tem acesso a uma subpasta mas não ao pai (sem permitir listar o pai).
-- [ ] **4.4** Aplicar exceção de estagiários (`intern`): onde o seu departamento tem `rwx`, atribuir ACL individual `r-x` (e default ACL `r-x`).
-- [ ] **4.5** Garantir que ficheiros e subpastas **já existentes** dentro das pastas também seguem a política após a execução.
-- [ ] **4.6** Garantir idempotência nas pastas/ACLs (só alterar e registar log quando houver diferença real).
+- [x] **4.1** Criar todas as pastas definidas em `access-policy.csv` (owner `root`, group owner = primeiro grupo com `rwx`, `setgid` ativo `g+s`, `others` sem acesso `---`).
+- [x] **4.2** Aplicar ACLs exatas da política e *default ACLs* para herança de novos ficheiros/subpastas.
+- [x] **4.3** Aplicar travessia mínima (`--x`) em pastas-pai quando um grupo tem acesso a uma subpasta mas não ao pai (sem permitir listar o pai).
+- [x] **4.4** Aplicar exceção de estagiários (`intern`): onde o seu departamento tem `rwx`, atribuir ACL individual `r-x` (e default ACL `r-x`).
+- [x] **4.5** Garantir que ficheiros e subpastas **já existentes** dentro das pastas também seguem a política após a execução.
+- [x] **4.6** Garantir idempotência nas pastas/ACLs (só alterar e registar log quando houver diferença real).
 
 ---
 
 ## Fase 5 — Testes e Validação (em `tests/part1/`)
-- [ ] **5.1** Criar testes unitários/automatizados em `tests/part1/` para parsing e validação (BOM, CRLF, espaços, acentos, colisões, duplicados, `intern` sem data, departamento desconhecido).
-- [ ] **5.2** Testar `--dry-run` com `employees.csv` + `access-policy.csv` (confirmar exit code `2` e zero alterações no sistema).
-- [ ] **5.3** *(Após confirmar snapshot da VM)* Testar execução real com `employees.csv` e verificar utilizadores, grupos, `chage`, `sudo`, passwords e ACLs.
-- [ ] **5.4** Testar **idempotência**: correr 2.ª vez com `employees.csv` e confirmar zero alterações + mensagem respetiva.
-- [ ] **5.5** Testar `employees_v2.csv`: mudança de nome (`E1008`), mudança de departamento (`E1004`), mudança de role (`E1013`, `E1017`), offboarding (`E1011`, `E1012`) e aviso de desaparecimento (`E1030`).
-- [ ] **5.6** Testar com um **2.º conjunto sintético** de ficheiros (outros nomes, departamentos e pastas) para comprovar ausência de hard-coding.
+- [x] **5.1** Criar testes unitários/automatizados em `tests/part1/` para parsing e validação (BOM, CRLF, espaços, acentos, colisões, duplicados, `intern` sem data, departamento desconhecido).
+- [x] **5.2** Testar `--dry-run` com `employees.csv` + `access-policy.csv` (confirmar exit code `2` e zero alterações no sistema).
+- [x] **5.3** *(Após confirmar snapshot da VM)* Testar execução real com `employees.csv` e verificar utilizadores, grupos, `chage`, `sudo`, passwords e ACLs.
+- [x] **5.4** Testar **idempotência**: correr 2.ª vez com `employees.csv` e confirmar zero alterações + mensagem respetiva.
+- [x] **5.5** Testar `employees_v2.csv`: mudança de nome (`E1008`), mudança de departamento (`E1004`), mudança de role (`E1013`, `E1017`), offboarding (`E1011`, `E1012`) e aviso de desaparecimento (`E1030`).
+- [x] **5.6** Testar com um **2.º conjunto sintético** de ficheiros (`test_phase5_synthetic.sh`, 15/15) para comprovar ausência de hard-coding e validar integração real com `part2/audit.sh` (0 desvios de política/ACLs/contas geridas).

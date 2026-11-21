@@ -57,9 +57,9 @@ touch "$TMP_DIR/empty.csv"
 assert_exit "Ficheiro employees vazio devolve exit 1" 1 "$PROVISION" --dry-run "$TMP_DIR/empty.csv" "$REAL_POL"
 assert_exit "Cabecalhos trocados devolvem exit 1" 1 "$PROVISION" --dry-run "$REAL_POL" "$REAL_EMP"
 
-# 5. Ficheiros reais (com BOM + CRLF) e --dry-run -> exit 0 (nesta fase)
-assert_exit "employees.csv + access-policy.csv em --dry-run" 0 "$PROVISION" --dry-run "$REAL_EMP" "$REAL_POL"
-assert_exit "employees_v2.csv + access-policy.csv em --dry-run" 0 "$PROVISION" --dry-run "$REAL_EMP_V2" "$REAL_POL"
+# 5. Ficheiros reais (com BOM + CRLF e linhas invalidas) e --dry-run -> exit 2
+assert_exit "employees.csv + access-policy.csv em --dry-run" 2 "$PROVISION" --dry-run "$REAL_EMP" "$REAL_POL"
+assert_exit "employees_v2.csv + access-policy.csv em --dry-run" 2 "$PROVISION" --dry-run "$REAL_EMP_V2" "$REAL_POL"
 
 echo "----------------------------------------"
 echo "Fase 0 -> Passou: $PASS | Falhou: $FAIL"

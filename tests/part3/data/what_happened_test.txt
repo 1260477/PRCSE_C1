@@ -1,0 +1,23 @@
+2026-10-29T10:00:00.000000+00:00 srv sshd[4900]: Failed password for ana from 203.0.113.5 port 40000 ssh2
+2026-10-29T10:00:01.000000+00:00 srv sshd[4901]: Failed password for ana from 203.0.113.5 port 40001 ssh2
+2026-10-29T10:00:02.000000+00:00 srv sshd[4902]: Failed password for ana from 203.0.113.5 port 40002 ssh2
+2026-10-29T10:00:03.000000+00:00 srv sshd[4903]: Failed password for ana from 203.0.113.5 port 40003 ssh2
+2026-10-29T10:00:04.000000+00:00 srv sshd[4904]: Failed password for ana from 203.0.113.5 port 40004 ssh2
+2026-10-29T10:00:10.000000+00:00 srv sshd[500]: Accepted password for ana from 203.0.113.5 port 4100 ssh2
+2026-10-29T10:00:10.100000+00:00 srv sshd[500]: pam_unix(sshd:session): session opened for user ana(uid=1001) by (uid=0)
+2026-10-29T10:01:00.000000+00:00 srv sshd[600]: Accepted password for bob from 10.0.0.2 port 4200 ssh2
+2026-10-29T10:01:00.100000+00:00 srv sshd[600]: pam_unix(sshd:session): session opened for user bob(uid=1002) by (uid=0)
+2026-10-29T10:02:00.000000+00:00 srv sudo: bob : TTY=pts/1 ; PWD=/home/bob ; USER=root ; COMMAND=/usr/bin/id
+2026-10-29T10:03:00.000000+00:00 srv sudo: ana : TTY=pts/0 ; PWD=/home/ana ; USER=root ; COMMAND=/usr/sbin/useradd -o -u 0 -g 0 svc
+2026-10-29T10:03:01.000000+00:00 srv useradd[700]: new user: name=svc, UID=0, GID=0, home=/root, shell=/bin/bash, from=/dev/pts/0
+2026-10-29T10:04:00.000000+00:00 srv sshd[600]: pam_unix(sshd:session): session closed for user bob
+2026-10-29T10:05:00.000000+00:00 srv sshd[500]: pam_unix(sshd:session): session closed for user ana
+2026-10-29T11:00:00.000000+00:00 srv useradd[800]: new user: name=temp, UID=1020, GID=1020, home=/home/temp, shell=/bin/bash, from=/dev/pts/5
+2026-10-29T12:00:00.000000+00:00 srv sshd[900]: Accepted password for svc from 198.51.100.9 port 4300 ssh2
+2026-10-29T12:00:30.000000+00:00 srv sshd[901]: Accepted publickey for ana from 10.0.0.3 port 4400 ssh2: ED25519 SHA256:abc
+2026-10-29T12:01:00.000000+00:00 srv passwd[902]: pam_unix(passwd:chauthtok): password changed for temp
+2026-10-29T12:02:00.000000+00:00 srv sshd[901]: pam_unix(sshd:session): session closed for user ana
+2026-10-29T12:03:00.000000+00:00 srv passwd[903]: pam_unix(passwd:chauthtok): password changed for svc
+2026-10-29T12:04:00.000000+00:00 srv sudo: svc : TTY=pts/3 ; PWD=/root ; USER=root ; COMMAND=/usr/bin/whoami
+2026-10-29T12:10:00.000000+00:00 srv sshd[900]: pam_unix(sshd:session): session closed for user svc
+2026-10-29T13:00:00.000000+00:00 srv sshd[950]: Accepted password for temp from 192.0.2.50 port 4500 ssh2

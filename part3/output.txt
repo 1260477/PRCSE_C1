@@ -1,2 +1,110 @@
-# Placeholder: será substituído pelo output real de:
-# ./part3/analyze_auth.sh ../C1_files/logs/auth.log* > part3/output.txt
+=== Brute force (>= 10 failed passwords in 5 min) ===
+IP: 203.0.113.118
+  First attempt: 2026-10-28T16:40:14.415602+00:00
+  Last attempt:  2026-10-28T16:43:32.490382+00:00
+  Failures:      70
+  Top usernames: admin(30) git(22) jenkins(14)
+  Successful logins: none
+IP: 203.0.113.45
+  First attempt: 2026-10-27T02:13:06.709899+00:00
+  Last attempt:  2026-10-27T02:41:10.290061+00:00
+  Failures:      587
+  Top usernames: root(362) admin(72) ubuntu(58)
+  Successful logins: none
+
+=== Password spray (>= 5 usernames in 60 min, <= 3 attempts per username on average) ===
+IP: 198.51.100.23
+  Period:    2026-10-28T13:05:43.340121+00:00 -> 2026-10-28T13:49:48.640309+00:00
+  Usernames: 26
+  Existing on the server:     asilva mcosta jpereira tmartins rfaria jgoncalves isimoes mlopes palmeida rdalmeida slima pramos crocha lcarvalho bteixeira hferreira rpinto cmendes nribeiro alopes vcorreia bantunes mbatista lcastro cpires
+  Not existing on the server: rnogueira
+
+=== Successful login after failures (>= 5 failures from the same IP or for the same user in the 60 min before) ===
+User: rfaria
+  IP:              192.0.2.77
+  Time:            2026-10-29T21:36:47.260774+00:00
+  Failures before: 43
+  Detected by:     both
+
+=== Top 10 IPs (failed + successful logins) ===
+IP                Failed Successful
+203.0.113.45         587          0
+203.0.113.118         70          0
+192.0.2.77            43          1
+198.51.100.23         34          0
+10.20.1.12             4          6
+192.0.2.134            9          0
+198.51.100.215         9          0
+192.0.2.151            8          0
+192.0.2.197            7          0
+198.51.100.235         7          0
+
+=== Top 10 attacked usernames (failed logins) ===
+Username               Failed
+root                      600
+admin                     121
+ubuntu                     77
+test                       54
+git                        44
+oracle                     39
+rfaria                     39
+centos                     26
+hadoop                     24
+jenkins                    24
+
+=== Logins as root over SSH ===
+2026-10-26T01:30:15.000562+00:00 from 10.20.5.5
+2026-10-27T01:30:31.000191+00:00 from 10.20.5.5
+2026-10-28T01:30:11.000728+00:00 from 10.20.5.5
+2026-10-29T01:30:26.000665+00:00 from 10.20.5.5
+2026-10-30T01:30:19.000530+00:00 from 10.20.5.5
+
+=== Sessions of suspicious accounts (successful login after failures) ===
+2026-10-26T09:07:21.000929+00:00 -> 2026-10-26T14:07:21.023634+00:00 rfaria from 10.20.3.14
+2026-10-27T09:56:25.000978+00:00 -> 2026-10-27T13:12:08.019266+00:00 rfaria from 10.20.3.14
+2026-10-28T09:10:42.000827+00:00 -> 2026-10-28T16:58:13.006717+00:00 rfaria from 10.20.3.14
+2026-10-29T09:46:14.000071+00:00 -> 2026-10-29T13:01:04.007137+00:00 rfaria from 10.20.3.14
+2026-10-29T21:36:47.260774+00:00 -> 2026-10-29T21:53:48.265791+00:00 rfaria from 192.0.2.77
+
+=== Sudo commands of suspicious accounts (successful login after failures) ===
+2026-10-29T21:37:05.260506+00:00 rfaria: list
+2026-10-29T21:38:20.260679+00:00 rfaria: /usr/bin/cat /etc/shadow
+2026-10-29T21:40:43.260827+00:00 rfaria: /usr/sbin/useradd -o -u 0 -g 0 -M -d /root -s /bin/bash sysupdate
+2026-10-29T21:41:08.260804+00:00 rfaria: /usr/bin/passwd sysupdate
+2026-10-29T21:43:33.260961+00:00 rfaria: /usr/bin/tar czf /tmp/.syscache.tgz /srv/company/finance /srv/company/hr
+2026-10-29T21:48:13.260025+00:00 rfaria: /usr/bin/chmod -R o+rwx /srv/company/hr/payroll
+2026-10-29T21:49:09.260801+00:00 rfaria: /usr/bin/crontab -l
+
+=== Sessions of accounts created in the log ===
+2026-10-30T03:12:30.000690+00:00 -> 2026-10-30T03:19:22.025499+00:00 sysupdate from 192.0.2.80
+
+=== Sudo commands of accounts created in the log ===
+No sudo commands of accounts created in the log.
+
+=== Account changes (useradd / passwd) ===
+2026-10-29T21:40:44.260903+00:00 account created: sysupdate (UID=0 GID=0 home=/root shell=/bin/bash from=/dev/pts/2) by rfaria
+  WARNING: UID 0 gives sysupdate root privileges
+2026-10-29T21:41:15.260503+00:00 password changed: sysupdate by rfaria
+
+=== Timeline (key events, whole period) ===
+2026-10-26T00:11:43.000597+00:00 Start of the analysed logs
+2026-10-27T02:13:06.709899+00:00 Brute force from 203.0.113.45 started
+2026-10-27T02:41:10.290061+00:00 Brute force from 203.0.113.45 ended (587 failed passwords; top usernames: root(362) admin(72) ubuntu(58))
+2026-10-28T13:05:43.340121+00:00 Password spray from 198.51.100.23 started
+2026-10-28T13:49:48.640309+00:00 Password spray from 198.51.100.23 ended (26 usernames tried)
+2026-10-28T16:40:14.415602+00:00 Brute force from 203.0.113.118 started
+2026-10-28T16:43:32.490382+00:00 Brute force from 203.0.113.118 ended (70 failed passwords; top usernames: admin(30) git(22) jenkins(14))
+2026-10-29T21:36:47.260774+00:00 Suspicious login: rfaria from 192.0.2.77 after 43 failed attempts
+2026-10-29T21:37:05.260506+00:00 sudo by rfaria: list
+2026-10-29T21:38:20.260679+00:00 sudo by rfaria: /usr/bin/cat /etc/shadow
+2026-10-29T21:40:43.260827+00:00 sudo by rfaria: /usr/sbin/useradd -o -u 0 -g 0 -M -d /root -s /bin/bash sysupdate
+2026-10-29T21:40:44.260903+00:00 Account created: sysupdate (UID=0) by rfaria - WARNING: UID 0 gives root privileges
+2026-10-29T21:41:08.260804+00:00 sudo by rfaria: /usr/bin/passwd sysupdate
+2026-10-29T21:41:15.260503+00:00 Password changed: sysupdate by rfaria
+2026-10-29T21:43:33.260961+00:00 sudo by rfaria: /usr/bin/tar czf /tmp/.syscache.tgz /srv/company/finance /srv/company/hr
+2026-10-29T21:48:13.260025+00:00 sudo by rfaria: /usr/bin/chmod -R o+rwx /srv/company/hr/payroll
+2026-10-29T21:49:09.260801+00:00 sudo by rfaria: /usr/bin/crontab -l
+2026-10-29T21:53:48.265791+00:00 Session of rfaria from 192.0.2.77 closed
+2026-10-30T03:12:30.000690+00:00 Login as sysupdate from 192.0.2.80 (account created in the log)
+2026-10-30T03:19:22.025499+00:00 Session of sysupdate from 192.0.2.80 closed
+2026-10-30T23:17:02.319522+00:00 End of the analysed logs

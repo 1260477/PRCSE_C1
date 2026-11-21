@@ -1,0 +1,50 @@
+2026-10-30T08:00:00.000000+00:00 srv-files01 sshd[100]: Failed password for root from 192.0.2.10 port 40000 ssh2
+2026-10-30T08:00:10.000000+00:00 srv-files01 sshd[100]: Failed password for invalid user admin from 192.0.2.10 port 40001 ssh2
+2026-10-30T08:00:20.000000+00:00 srv-files01 sshd[100]: Failed password for invalid user test from 192.0.2.10 port 40002 ssh2
+2026-10-30T08:00:30.000000+00:00 srv-files01 sshd[100]: Failed password for invalid user oracle from 192.0.2.10 port 40003 ssh2
+2026-10-30T08:00:40.000000+00:00 srv-files01 sshd[100]: Failed password for invalid user guest from 192.0.2.10 port 40004 ssh2
+2026-10-30T08:01:00.000000+00:00 srv-files01 sshd[100]: Accepted password for carol from 192.0.2.10 port 40005 ssh2
+2026-10-30T10:00:00.000000+00:00 srv-files01 sshd[100]: Failed password for alice from 192.0.2.21 port 41000 ssh2
+2026-10-30T10:00:10.000000+00:00 srv-files01 sshd[100]: Failed password for alice from 192.0.2.21 port 41000 ssh2
+2026-10-30T10:00:20.000000+00:00 srv-files01 sshd[100]: Failed password for alice from 192.0.2.21 port 41000 ssh2
+2026-10-30T10:00:30.000000+00:00 srv-files01 sshd[100]: Failed password for alice from 192.0.2.21 port 41000 ssh2
+2026-10-30T10:00:40.000000+00:00 srv-files01 sshd[100]: Failed password for alice from 192.0.2.21 port 41000 ssh2
+2026-10-30T10:01:00.000000+00:00 srv-files01 sshd[100]: Accepted password for alice from 192.0.2.22 port 41001 ssh2
+2026-10-30T12:00:00.000000+00:00 srv-files01 sshd[100]: Failed password for dave from 192.0.2.30 port 42000 ssh2
+2026-10-30T12:00:10.000000+00:00 srv-files01 sshd[100]: Failed password for dave from 192.0.2.30 port 42000 ssh2
+2026-10-30T12:00:20.000000+00:00 srv-files01 sshd[100]: Failed password for dave from 192.0.2.30 port 42000 ssh2
+2026-10-30T12:00:30.000000+00:00 srv-files01 sshd[100]: Failed password for dave from 192.0.2.30 port 42000 ssh2
+2026-10-30T12:00:40.000000+00:00 srv-files01 sshd[100]: Failed password for dave from 192.0.2.30 port 42000 ssh2
+2026-10-30T12:00:50.000000+00:00 srv-files01 sshd[100]: Failed password for dave from 192.0.2.30 port 42000 ssh2
+2026-10-30T12:01:00.000000+00:00 srv-files01 sshd[100]: Accepted password for dave from 192.0.2.30 port 42001 ssh2
+2026-10-30T14:00:00.000000+00:00 srv-files01 sshd[100]: Failed password for erin from 10.0.0.5 port 43000 ssh2
+2026-10-30T14:00:05.000000+00:00 srv-files01 sshd[100]: Failed password for erin from 10.0.0.5 port 43001 ssh2
+2026-10-30T14:00:10.000000+00:00 srv-files01 sshd[100]: Accepted password for erin from 10.0.0.5 port 43002 ssh2
+2026-10-30T16:00:00.000000+00:00 srv-files01 sshd[100]: Failed password for frank from 192.0.2.50 port 44000 ssh2
+2026-10-30T16:00:10.000000+00:00 srv-files01 sshd[100]: Failed password for frank from 192.0.2.50 port 44000 ssh2
+2026-10-30T16:00:20.000000+00:00 srv-files01 sshd[100]: Failed password for frank from 192.0.2.50 port 44000 ssh2
+2026-10-30T16:00:30.000000+00:00 srv-files01 sshd[100]: Failed password for frank from 192.0.2.50 port 44000 ssh2
+2026-10-30T16:00:40.000000+00:00 srv-files01 sshd[100]: Failed password for frank from 192.0.2.50 port 44000 ssh2
+2026-10-30T17:00:41.000000+00:00 srv-files01 sshd[100]: Accepted password for frank from 192.0.2.50 port 44001 ssh2
+2026-10-30T19:00:00.000000+00:00 srv-files01 sshd[100]: Failed password for grace from 192.0.2.60 port 45000 ssh2
+2026-10-30T19:00:10.000000+00:00 srv-files01 sshd[100]: Failed password for grace from 192.0.2.60 port 45000 ssh2
+2026-10-30T19:00:20.000000+00:00 srv-files01 sshd[100]: Failed password for grace from 192.0.2.60 port 45000 ssh2
+2026-10-30T19:00:30.000000+00:00 srv-files01 sshd[100]: Failed password for grace from 192.0.2.60 port 45000 ssh2
+2026-10-30T19:00:40.000000+00:00 srv-files01 sshd[100]: Failed password for grace from 192.0.2.60 port 45000 ssh2
+2026-10-30T20:00:00.000000+00:00 srv-files01 sshd[100]: Accepted password for grace from 192.0.2.60 port 45001 ssh2
+2026-10-30T21:00:00.000000+00:00 srv-files01 sshd[100]: Accepted password for henrique from 10.0.0.8 port 46000 ssh2
+2026-10-30T22:00:00.000000+00:00 srv-files01 sshd[100]: Failed password for henrique from 10.0.0.8 port 46001 ssh2
+2026-10-30T22:00:05.000000+00:00 srv-files01 sshd[100]: Failed password for henrique from 10.0.0.8 port 46001 ssh2
+2026-10-30T22:00:10.000000+00:00 srv-files01 sshd[100]: Failed password for henrique from 10.0.0.8 port 46001 ssh2
+2026-10-30T22:00:20.000000+00:00 srv-files01 sshd[100]: Failed password for henrique from 192.0.2.70 port 46002 ssh2
+2026-10-30T22:00:25.000000+00:00 srv-files01 sshd[100]: Failed password for henrique from 192.0.2.70 port 46002 ssh2
+2026-10-30T22:00:30.000000+00:00 srv-files01 sshd[100]: Failed password for henrique from 192.0.2.70 port 46002 ssh2
+2026-10-30T22:01:00.000000+00:00 srv-files01 sshd[100]: Accepted password for henrique from 10.0.0.8 port 46003 ssh2
+2026-10-30T23:00:00.000000+00:00 srv-files01 sshd[100]: Accepted password for ivo from 10.0.0.9 port 47000 ssh2
+2026-10-30T23:30:00.000000+00:00 srv-files01 sshd[100]: Failed password for ivo from 10.0.0.9 port 47001 ssh2
+2026-10-30T23:30:05.000000+00:00 srv-files01 sshd[100]: Failed password for ivo from 10.0.0.9 port 47001 ssh2
+2026-10-30T23:30:10.000000+00:00 srv-files01 sshd[100]: Failed password for ivo from 10.0.0.9 port 47001 ssh2
+2026-10-30T23:30:15.000000+00:00 srv-files01 sshd[100]: Failed password for ivo from 10.0.0.9 port 47001 ssh2
+2026-10-30T23:30:20.000000+00:00 srv-files01 sshd[100]: Failed password for ivo from 10.0.0.9 port 47001 ssh2
+2026-10-30T23:30:25.000000+00:00 srv-files01 sshd[100]: Failed password for ivo from 10.0.0.9 port 47001 ssh2
+2026-10-30T23:31:00.000000+00:00 srv-files01 sshd[100]: Accepted password for ivo from 10.0.0.9 port 47002 ssh2

@@ -1,0 +1,22 @@
+tac "$0" > "$file" 
+
+fi
+    exit 1
+    echo "Error: $file is a directory" >&2
+if [[ -d "$file" ]]; then
+
+fi
+    exit 1
+    echo "Error: You cannot write into the script itself" >&2
+if [[ "$file" -ef "$0" ]]; then
+# Check if the target file is not the script
+
+file=$1
+
+fi
+        exit 1
+        echo "Error: Number of arguments passed is wrong. 1 arguments should be passed, a target file" >&2
+if [[ ! $# -eq  1 ]]; then
+# The script must be executed with one argument, otherwise it throws an error and exits 
+
+#!/bin/bash

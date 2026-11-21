@@ -1,0 +1,9 @@
+2026-10-29T10:00:00.000000+00:00 srv sudo: ana : TTY=pts/1 ; PWD=/home/ana ; USER=root ; COMMAND=/usr/sbin/useradd -m -s /bin/bash joao
+2026-10-29T10:00:01.000000+00:00 srv useradd[100]: new group: name=joao, GID=1010
+2026-10-29T10:00:01.100000+00:00 srv useradd[100]: new user: name=joao, UID=1010, GID=1010, home=/home/joao, shell=/bin/bash, from=/dev/pts/1
+2026-10-29T10:00:05.000000+00:00 srv sudo: ana : TTY=pts/1 ; PWD=/home/ana ; USER=root ; COMMAND=/usr/bin/passwd joao
+2026-10-29T10:00:09.000000+00:00 srv passwd[101]: pam_unix(passwd:chauthtok): password changed for joao
+2026-10-29T11:00:00.000000+00:00 srv useradd[200]: new user: name=backdoor, UID=0, GID=0, home=/root, shell=/bin/bash, from=/dev/pts/3
+2026-10-29T11:00:10.000000+00:00 srv passwd[201]: pam_unix(passwd:chauthtok): password changed for backdoor
+2026-10-29T12:00:00.000000+00:00 srv passwd[300]: pam_unix(passwd:chauthtok): authentication failure; logname= uid=1000 euid=0 tty=pts/0 ruser= rhost=  user=ana
+2026-10-29T12:00:05.000000+00:00 srv sshd[400]: Failed password for invalid user useradd from 203.0.113.9 port 4000 ssh2

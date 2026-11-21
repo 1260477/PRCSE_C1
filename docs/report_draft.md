@@ -37,10 +37,150 @@ O estado guarda as ocorrências da última execução. Para as expirações, a c
 **Âmbito da validação.** Os testes foram executados em Ubuntu Server 24.04.3 LTS com dados controlados e com o auditor instalado. A integração com o provisionamento do grupo em 26.04 e o disparo real às 06:00 ficam por confirmar. A política identifica grupos e permissões; a auditoria reconhece ACL individuais de leitura compatíveis com a exceção de estagiário, mas não autentica o estatuto de cada titular. Duas execuções no mesmo dia publicam no mesmo relatório datado.
 
 ### 2.3 Part 3 — Auth Log Analysis (`analyze_auth.sh`)
+- **Assumptions (o enunciado não define critérios de validade para os ficheiros de log):**
+  1. **Todos os ficheiros recebidos são lidos, seja qual for o nome ou a extensão.** Um ficheiro está comprimido ou não conforme o seu conteúdo e não conforme a extensão, por isso um `.gz` renomeado continua a ser lido corretamente. O script só exige que cada ficheiro exista e seja legível.
+  2. **Assume-se que todas as linhas dos ficheiros são válidas**, ou seja, começam com um timestamp ISO 8601 no formato do Ubuntu 26.04 (`2026-10-30T21:54:15.984758+00:00`), sempre com o mesmo fuso horário. A ordenação cronológica depende disto: o `sort` ordena a linha inteira alfabeticamente. Linhas que não interessam à análise (por exemplo, mensagens PAM sem relevância) simplesmente não correspondem a nenhum padrão de deteção. *(Limitação conhecida: uma linha sem timestamp válido não é detetada nem reportada e pode ficar fora de ordem.)*
+  3. **Um ficheiro `.gz` corrompido é ignorado e o utilizador é alertado.** A análise continua com os restantes ficheiros, e a mensagem de aviso indica qual o ficheiro que não foi lido.
+  4. **Assume-se que os ficheiros comprimidos contêm um único log.** Arquivos com vários ficheiros (por exemplo `.tar.gz` ou `.zip`) não são suportados, porque a rotação de logs produz sempre um `.gz` por ficheiro (`auth.log.2.gz`, `auth.log.3.gz`...). Se for dado um `.tar.gz`, o resultado da análise não é fiável.
+  5. **Linhas exatamente iguais são tratadas como duplicadas e contadas uma só vez.** A linha inteira tem de ser igual: timestamp, host, processo, PID e mensagem. Isto evita contar eventos a dobrar quando os ficheiros se sobrepõem (por exemplo, o mesmo ficheiro dado duas vezes, ou `auth.log.1` e `auth.log.1.gz`). Dois eventos diferentes no mesmo instante são ambos mantidos, porque são frequentes no auth.log (por exemplo, várias tentativas SSH em paralelo). O resultado também não depende da ordem dos argumentos.
+  6. **Um username vazio é mostrado como `<empty>`.** O log tem linhas como `Failed password for invalid user  from 192.0.2.236` (dois espaços, sem username). Como o awk junta espaços seguidos num só separador, o campo vazio desaparece e o campo antes de `from` passa a ser a palavra `user` do texto da mensagem. Para não se confundir com um username real chamado `user` (`invalid user user from`), o script reconhece o caso quando as duas palavras antes de `from` são `invalid user`. O marcador não tem espaços, por isso as colunas mantêm-se, e não pode ser um username real, porque `<` e `>` não são válidos em nomes de utilizador Linux.
+  7. **No brute force mostram-se os 3 usernames mais tentados por IP, com o número de tentativas de cada um** (por exemplo, `root(362) admin(72) ubuntu(58)`). O enunciado pede "most tried usernames" sem dizer quantos. O 3 é uma escolha de apresentação e não um limiar de deteção, por isso não altera que IPs são detetados. Também não usa o `-t`, que o enunciado define para os tops da secção 3.5. Em caso de empate, ganha o username que vem primeiro por ordem alfabética, para o resultado não depender da implementação de awk (ver secção 5).
 - **Log ingestion, decompression & chronological sorting:** ...
-- **Detection logic (brute force, password spray, success after failures, top active):** ...
-- **Performance (<30s on VM):** ...
-- **Known limitations:** ...
+- **Ficheiros temporários seguros:** as linhas dos logs ordenadas (`EVENTS_FILE`) e os eventos SSH extraídos (`SSH_FILE`, ver abaixo) ficam em ficheiros temporários criados com `mktemp` e não num caminho fixo como `/tmp/analyze_auth.txt`. Razões:
+  - o nome é único e aleatório, e o ficheiro é criado de forma atómica, o que evita ataques por symlink e colisões entre execuções em paralelo;
+  - as permissões são `600`, por isso os usernames e IPs dos logs não ficam legíveis por outros utilizadores;
+  - respeita a variável `$TMPDIR`.
+
+  Os dois ficheiros são apagados com um só `trap 'rm -f "$EVENTS_FILE" "$SSH_FILE"' EXIT`, mesmo quando o script termina com erro ou é interrompido. As aspas simples adiam a expansão para o momento da saída, por isso o `SSH_FILE`, criado depois do `trap`, também é apagado.
+- **Extração única dos eventos SSH (`extract_ssh_events`):** logo a seguir à leitura, um só awk percorre `EVENTS_FILE` e escreve em `SSH_FILE` uma linha por cada `Failed password` e `Accepted password`/`Accepted publickey`, por ordem cronológica:
+
+  ```
+  ip epoch timestamp user type status usual
+  ```
+
+  - `ip` é o campo a seguir a `from` e `user` o campo antes, porque a coluna muda entre `for root from …` e `for invalid user X from …` (o username vazio fica `<empty>`, pressuposto 6);
+  - `epoch` é o timestamp em segundos, calculado aqui uma só vez com `mktime` (ver "Conversão do tempo"), e `timestamp` é o texto original, para o output;
+  - `type` é `fail` ou `success`; `status` é `invalid` quando a linha diz `for invalid user` (o username não existe no servidor) e `valid` caso contrário;
+  - `usual` só é preenchido nos sucessos: o IP do 1.º login com sucesso anterior desse user (ver 3.4), ou `-`.
+
+  Todas as deteções leem este ficheiro e só fazem `sort` + awk da sua janela. O formato está documentado no topo do script, junto da variável `SSH_FILE`, porque é o "contrato" entre a extração e as deteções.
+- **Evolução e melhorias do código da Parte 3:** na primeira versão, cada deteção era autónoma e tinha o seu próprio pipeline completo: um awk de extração (procurar `from`, IP, username, `<empty>`), a função `to_epoch` com `mktime` e o `sort` por IP. Com três deteções (3.2, 3.3 e 3.4), o mesmo parsing estava escrito três vezes e o `mktime` corria três vezes por evento. Antes de começar a 3.5, que também precisa dos mesmos eventos, o código foi reorganizado na extração única descrita acima. Melhorias:
+  - **Um só sítio para o parsing:** uma correção (por exemplo, um novo caso de username estranho) é feita uma vez e vale para todas as deteções. Antes, era preciso lembrar-se de a repetir nas três funções.
+  - **Menos código:** desapareceram dois awks de extração e duas cópias de `to_epoch`. A função auxiliar `success_events` da 3.4 deixou de ser precisa, porque o IP habitual passou a ser calculado na extração. As deteções ficaram só com a lógica da janela, mais fáceis de ler e de explicar.
+  - **Mais rápido:** o tempo é convertido uma vez por evento e não uma vez por deteção. Nos logs fornecidos, o script completo passou de ≈0,26 s para ≈0,21 s nesta máquina.
+  - **Preparação para a 3.5 e a 3.6:** os tops e a timeline podem ler o mesmo `SSH_FILE` em vez de acrescentarem mais parsings.
+  - **Como se verificou que nada mudou:** antes da alteração guardou-se o output de 16 cenários (os testes das secções 3.2, 3.3 e 3.4, os logs fornecidos com várias combinações de opções, ficheiros em ordem trocada e `.gz` corrompido), cada um com `gawk` e com `mawk`. Depois da alteração, os 32 outputs foram comparados com `diff -r` e são iguais, incluindo o código de saída. Verificou-se também que os dois ficheiros temporários são apagados numa execução normal e numa saída por erro.
+- **Alternativa rejeitada: um array bash por tipo de linha.** O enunciado lista vários tipos de linha (sshd, sudo, useradd, passwd, CRON, systemd-logind), e uma hipótese era separá-los logo na leitura, num array bash por tipo, usado depois como variável pelas funções de deteção. Não se fez assim por três razões:
+  - **Os dados teriam de voltar ao awk.** Todas as deteções são awk a ler um ficheiro. Com arrays, cada função teria de fazer `printf '%s\n' "${ARR[@]}" | awk …`, o que dá o mesmo trabalho que ler um ficheiro, mas com milhares de linhas guardadas na memória do bash, que é lento a lidar com volumes destes.
+  - **A 3.6 precisa dos tipos misturados, por ordem cronológica.** Para saber que um `sudo` pertence à sessão de um utilizador, o awk lê o `Accepted` do sshd, depois os `sudo` e depois o `session closed` desse processo sshd, intercalados no tempo. Com um array por tipo, essa ordem perde-se e teria de ser reconstruída com um merge.
+  - **A separação já existe onde compensa.** O `SSH_FILE` é precisamente "as linhas sshd já interpretadas", e é lido por quatro deteções (3.2 a 3.5). As linhas `sudo`, `useradd` e `passwd` só são usadas pela 3.6, por isso uma estrutura própria para elas não poupava nada. As linhas `CRON` e `systemd-logind` são lidas, mas não entram em nenhuma deteção. Como as sessões são ligadas pelo PID do sshd, o `session opened` do CRON não é confundido com uma sessão SSH.
+
+  "Parse correctly" foi interpretado como interpretar bem cada tipo de linha, e não como guardar cada tipo numa estrutura separada. Exemplos: o `invalid user` desloca os campos, o username vazio não parte as colunas (pressuposto 6) e as linhas do CRON não passam por sessões SSH.
+- **Alternativa rejeitada: deteções com um ciclo bash em vez de awk.** As contagens simples da 3.5 podem ser feitas com `cut | sort | uniq -c`, mas as janelas (3.2 a 3.4) e as sessões (3.6) precisam de guardar estado entre linhas, e `grep`, `cut`, `sort` e `uniq` não o fazem. A única alternativa sem awk é um ciclo `while read -r ip epoch ts user type _; do … done < <(LC_ALL=C sort -s -k1,1 "$SSH_FILE")`, com arrays bash e aritmética `(( ))`. Para comparar, escreveu-se o brute force (3.2) desta forma: a janela é a mesma (`t[k] - t[k-N+1] <= window`) e o top de usernames passa a ser `sort | uniq -c | sort -k1,1nr -k2,2 | head -n 3`. O resultado é igual ao da versão awk em 5 cenários (logs fornecidos com opções default e com `-b 3 -w 1`, `bf_sliding_window.txt`, `bf_successful_logins.txt` e `spray_test.txt`), mas é bem mais lento, com os mesmos 1433 eventos SSH:
+
+  | Deteção 3.2 | awk | ciclo bash |
+  |---|---|---|
+  | Opções default | 17 ms | 184 ms |
+  | `-b 3 -w 1` (muitos IPs detetados) | 21 ms | 1572 ms |
+
+  Porque é que o awk é mais eficiente:
+  - **Compila uma vez.** O awk converte o programa numa estrutura interna quando arranca e só a executa para cada linha. O bash volta a analisar cada comando em cada iteração: expande variáveis, separa palavras e avalia o `(( ))` a partir do texto.
+  - **Lê a entrada em blocos.** O awk lê o input em blocos de vários KB e corta as linhas em memória. O `read` do bash, quando lê de um pipe, lê um byte de cada vez (uma chamada ao sistema por byte), porque não pode consumir nada depois do `\n`: o resto do pipe tem de ficar para o comando seguinte.
+  - **Tem números de verdade.** No bash todos os valores são texto e são convertidos para número em cada conta. O awk guarda os números como números e separa os campos em C.
+  - **Não cria processos.** O que no awk é uma função interna (`top_users`) é, no bash, um pipeline `$(… | sort | uniq -c | sort | head | while …)` que lança cerca de 6 processos por cada IP detetado. É isto que leva o caso `-b 3` a 1,5 s.
+
+  A versão bash é mais fácil de ler para quem não conhece awk e continua abaixo dos 30 s pedidos, mas o custo cresce com o número de IPs detetados. Ficou-se com a divisão habitual: o bash orquestra (opções, ficheiros, ordem das deteções, output) e o awk trata as linhas.
+- **Brute force (3.2):** o enunciado define brute force como N falhas "inside **any** window of MIN minutes", por isso usa-se uma **janela deslizante** e não janelas fixas. Com janelas fixas (por exemplo, recomeçar a contagem quando a janela expira), um ataque que caia entre o fim de uma janela e o início da seguinte fica dividido e não é detetado. A deteção lê `SSH_FILE` e é um pipeline de dois passos:
+  1. **`LC_ALL=C sort -s -k1,1`** — agrupa os eventos por IP. Como `SSH_FILE` já está por ordem cronológica, o `-s` (ordenação estável) mantém essa ordem dentro de cada IP.
+  2. **awk** — trata um IP de cada vez. Numera as falhas desse IP (`k`) e guarda o tempo de cada uma em segundos. O bloco de N falhas que termina na falha `k` começa na falha `k − N + 1`, por isso, a partir de `k ≥ N`, basta uma comparação:
+
+     ```
+     if (k >= n && t[k] - t[k - n + 1] <= window) detected = 1
+     ```
+
+  Decisões:
+  - **Agrupar por IP com o `sort` simplifica as estruturas de dados:** o awk só guarda o estado do IP atual, em variáveis simples e num array indexado pelo número da falha, sem precisar de arrays por IP. Quando o IP muda, o anterior é reportado (se foi detetado) e o estado é reiniciado. O último IP é reportado no bloco `END`.
+  - **Conversão do tempo:** `mktime` do awk, na extração única, executado com `TZ=UTC`, para o resultado não depender do fuso horário da máquina nem de mudanças de hora.
+  - **Limite da janela inclusivo (`<=`):** N falhas que ocupem exatamente MIN minutos contam como brute force.
+  - **Primeira e última tentativa e total de falhas são de todas as falhas do IP** em todo o período, e não só do bloco que disparou a deteção. Os logins com sucesso não contam para estes valores.
+  - **Logins com sucesso:** para cada IP detetado listam-se **todos** os logins com sucesso desse IP (username e timestamp), em vez de só "sim/não". Assim vê-se que contas foram comprometidas e se o sucesso foi antes ou depois do ataque, o que é usado na timeline e no incident report. Os sucessos vêm no mesmo pipeline que as falhas, porque o awk já trata um IP de cada vez: uma linha `success` só é acrescentada à lista do IP e não entra na contagem das falhas nem na janela deslizante.
+  - **Resultados guardados e não impressos diretamente:** a função guarda uma linha CSV por IP (`ip,first,last,failures,top_usernames,successes`, em que `successes` é uma lista `user@timestamp` separada por espaços, vazia se não houve nenhum) no array global `BRUTE_RESULTS`, preenchido com `mapfile`. O relatório é impresso no fim por `print_report`, o que permite à secção 3.6 (timeline) reutilizar os resultados sem os recalcular. A vírgula foi escolhida como separador porque não aparece em timestamps nem em usernames Linux. Se não houver deteções, o relatório diz explicitamente "No brute force attacks detected."
+- **Password spray (3.3):** usa o mesmo pipeline do brute force (`sort -s -k1,1` de `SSH_FILE` → awk, um IP de cada vez, só com as falhas), também com uma janela deslizante, mas de duração fixa: 60 minutos, sem opção, como no enunciado. O limite de usernames vem do `-s`. O máximo de 3 tentativas por username em média não tem opção no enunciado, por isso está declarado como constante (`SPRAY_MAX_AVG`) no topo do script, junto com `SPRAY_WINDOW`.
+  - **Porque não se reutiliza a comparação `k − N + 1` do brute force:** aqui N conta usernames diferentes e não falhas. Um IP pode ter muitas falhas no mesmo username, por isso N usernames não correspondem a N falhas seguidas.
+  - **Janela com duas pontas:** além da falha atual `k`, guarda-se `left`, o número da falha mais antiga ainda dentro dos 60 minutos. Quando chega uma falha nova, um `while` avança `left` enquanto essa falha estiver a mais de 60 minutos da atual. É um `while` e não um `if`, porque podem sair várias falhas de uma vez. Como `left` nunca anda para trás, cada falha sai no máximo uma vez.
+  - **Contar usernames diferentes sem percorrer arrays:** `in_window[username]` conta as tentativas de cada username dentro da janela, e `distinct` guarda quantos usernames diferentes lá estão. Quando uma falha entra e a contagem do seu username passa de 0 para 1, `distinct` sobe. Quando sai e a contagem chega a 0, desce. Para saber que username sai, guarda-se o username de cada falha em `u[k]`, tal como o tempo em `t[k]`.
+  - **Condição sem divisão:** as tentativas na janela são `k − left + 1`, e "média ≤ 3" escreve-se como multiplicação, o que evita casas decimais e divisões por zero (`distinct` é sempre ≥ 1 quando a condição é avaliada):
+
+    ```
+    if (distinct >= n && (k - left + 1) <= max_avg * distinct) detected = 1
+    ```
+  - **Usernames existentes e não existentes:** o log indica-o. `Failed password for invalid user X` significa que X não existe no servidor, e `Failed password for X` que existe. Cada username entra uma vez na lista certa, na sua 1.ª tentativa, e as listas ficam pela ordem dessas tentativas, o que dá o mesmo resultado em qualquer awk. O username vazio (`<empty>`, pressuposto 6) conta como username e é não existente.
+  - **"Period", número de usernames e listas são de toda a atividade de falhas do IP**, como no brute force, e não só da janela que disparou a deteção. O limite da janela também é inclusivo: uma falha a exatamente 60 minutos ainda conta.
+  - Os resultados vão para o array global `SPRAY_RESULTS` (`ip,first,last,num_usernames,existing,non_existing`). Se não houver deteções, o relatório diz "No password spray attacks detected."
+- **Login com sucesso depois de falhas (3.4):** um login com sucesso é suspeito se houver pelo menos N falhas (`-f`, por omissão 5) do mesmo IP **ou** para o mesmo username nos 60 minutos antes. Os 60 minutos não têm opção no enunciado e estão na constante `SUCCESS_WINDOW`, como `SPRAY_WINDOW`.
+  - **Janela deslizante a partir do sucesso:** reutiliza a ideia das duas pontas do password spray. As falhas de cada grupo são numeradas (`k`) e o tempo de cada uma fica em `t[k]`. Quando chega um sucesso, um `while` avança `left` enquanto a falha mais antiga estiver a mais de 60 minutos do sucesso. As falhas que sobram na janela são `k − left + 1`. A condição `left <= k` impede que `left` passe da última falha quando a janela fica vazia.
+  - **Duas vias com o mesmo código:** a janela está numa função (`success_window`) que recebe a coluna de `SSH_FILE` que define o grupo: 1 (IP) ou 4 (username). Corre duas vezes, com o input agrupado por `sort -s -k1,1` e por `sort -s -k4,4`. Agrupar por username é preciso porque um atacante pode falhar de um IP e entrar de outro; nesse caso a via do IP não vê nenhuma falha antes do sucesso.
+  - **Um login detetado pelas duas vias aparece uma vez:** um awk de junção identifica cada login pela chave `ip,user,time`. Se a chave aparece duas vezes, fica uma linha com o maior dos dois números de falhas (os números não se somam, porque contam em parte as mesmas falhas) e o motivo `both`. Para manter a ordem sem depender da ordem de `for (key in array)`, que é diferente entre awks, as chaves são guardadas por ordem de chegada num array numerado. No fim, um `sort` pela 3.ª coluna põe os logins por ordem cronológica.
+  - **Coluna `reason` (`ip`, `user` ou `both`):** o enunciado não a pede, mas mostra porque é que o login foi considerado suspeito, o que ajuda na secção 3.6 e no incident report.
+  - **Typo normal ("a few failures from the person's usual IP"):** o enunciado não define "usual IP" nem "a few", por isso foram assumidos:
+    - **IP habitual** de um username = o IP do seu 1.º login com sucesso anterior no log. Um login sem sucesso anterior não tem IP habitual e só é avaliado pelo limite N. Como `EVENTS_FILE` está em ordem cronológica, a extração única guarda o IP do 1.º sucesso de cada username (`first_ip[user]`) e escreve-o na coluna `usual` de cada sucesso seguinte.
+    - **"A few" = até 3 falhas**, na constante `TYPO_MAX=3` no topo do script (não tem opção, porque não vem do enunciado).
+    - **Regra:** se o sucesso vem do IP habitual e as falhas na janela vindas desse IP são ≤ `TYPO_MAX`, essas falhas são tiradas da contagem. As falhas de outros IPs contam sempre, para não esconder um ataque à conta só porque o dono entrou do seu IP. Depois aplica-se o limite N ao que sobra. A regra é a mesma nas duas vias (IP e username).
+    - Com o valor por omissão (N = 5), a regra só muda o resultado quando há falhas do IP habitual e de outros IPs ao mesmo tempo. Com N ≤ 3, também impede que um typo sozinho seja reportado.
+  - **Limite da janela inclusivo:** uma falha a exatamente 60 minutos do sucesso ainda conta, como no brute force e no password spray.
+  - Os resultados vão para o array global `SUCCESS_RESULTS` (`ip,user,time,failures_before,reason`), uma linha por login. Se não houver deteções, o relatório diz "No successful logins after failures detected."
+- **Mais ativos (3.5):** três listas, cada uma no seu array global, porque têm colunas diferentes. Todas leem `SSH_FILE`.
+  - **Top IPs (`TOP_IPS_RESULTS`: `ip,failures,successes`):** o enunciado pede os IPs "with failed and successful logins", por isso a ordenação é pelo **total** (falhas + sucessos). Um IP interno com poucas falhas e muitos sucessos (`10.20.1.12`, 4 + 6) pode ficar acima de IPs só com falhas (9).
+  - **Top usernames atacados (`TOP_USERS_RESULTS`: `user,failures`):** "atacado" = tentativa **falhada**. Os sucessos não contam, porque a maioria são logins legítimos. O username vazio aparece como `<empty>` (pressuposto 6).
+  - **Logins como root por SSH (`ROOT_LOGINS_RESULTS`: `ip,time`):** só os logins **com sucesso** (`Accepted password` ou `Accepted publickey` para `root`). As falhas de root já aparecem no top de usernames. Esta lista não é um top, por isso mostram-se todos, por ordem cronológica.
+  - **Contar com arrays indexados por IP/username:** ao contrário das deteções com janela, aqui só é preciso contar, por isso o awk usa `failures[ip]++` e não agrupa com `sort`. A ordem de `for (ip in ...)` não é garantida, mas não importa: o `sort -t, -k…nr` a seguir ordena pelo número, do maior para o menor, e em caso de empate pelo IP ou username, para o resultado ser sempre o mesmo em qualquer awk. O `head -n "$TOP_N"` fica com os N primeiros (opção `-t`). No top de IPs, o total é uma coluna extra que só serve para ordenar e é retirada com `cut`.
+  - **Apresentação:** os tops são impressos em tabela com `printf` e larguras fixas (texto à esquerda, números à direita). Cada lista vazia tem uma mensagem explícita (por exemplo, `No root logins over SSH.`).
+- **O que aconteceu (3.6) — sessões, comandos `sudo` e alterações de contas (`detect_what_happened`):** o enunciado pede, "for every suspicious account from 3.4, and for any account created in the log", as suas sessões, os seus comandos `sudo` e as alterações de contas que fez. Ao contrário das deteções anteriores, lê `EVENTS_FILE` e não `SSH_FILE`, porque precisa de linhas que não são de SSH (`sudo`, `useradd`, `passwd`…).
+  - **Contas seguidas:** as contas dos logins detetados na 3.4 (`SUCCESS_RESULTS`) **e** todas as contas criadas no log, quer tenham sido criadas numa sessão suspeita ou não. Para cada uma guardam-se **todas** as sessões e **todos** os comandos `sudo`, e não só os da sessão do login detetado. Nos logs fornecidos, isto inclui as 4 sessões normais de `rfaria` a partir de `10.20.3.14` (26 a 29/10), que ajudam a ver o que era o comportamento habitual da conta, e a sessão de `sysupdate` a 30/10.
+  - **Uma só passagem:** um awk percorre `EVENTS_FILE` uma vez. O conjunto de contas seguidas começa com os users da 3.4, e cada `useradd … new user: name=X` acrescenta X nesse momento. Como o log está por ordem cronológica, as sessões de uma conta criada só podem aparecer depois da sua criação, por isso não é preciso uma segunda passagem.
+  - **Dois grupos (coluna `origin`):** cada conta seguida é `suspicious` (login da 3.4) ou `created` (criada no log). O relatório mostra as sessões e os comandos `sudo` de cada grupo em secções separadas, para distinguir o que fez a conta comprometida do que fez a conta criada pelo atacante. Uma conta que seja as duas coisas fica em `suspicious`.
+  - **Sessões:** cada linha `Accepted … for <conta seguida> from <ip>` abre uma sessão, identificada pelo 3.º campo da linha (por exemplo `sshd[35410]:`), que é o processo `sshd` que trata a ligação. A linha `session closed` escrita pelo **mesmo** processo fecha-a. As sessões são guardadas em arrays numerados pela ordem de abertura e escritas no bloco `END`, por isso saem por ordem cronológica de início. Uma sessão que não fecha até ao fim do log fica com fim `-`.
+  - **Porque se usa o PID do `sshd` e não o username para o fim da sessão:** o mesmo user pode ter várias sessões abertas ao mesmo tempo, e cada uma tem o seu `session closed for user rfaria`. O PID liga o fim à sessão certa.
+  - **Comandos `sudo`:** as linhas `sudo: <conta seguida> : … COMMAND=…`, em todo o log. O comando é tudo o que vem depois de `COMMAND=` (`substr` + `index`), para manter os argumentos com espaços. Um `sudo` de uma conta que não é seguida não aparece, mesmo que aconteça a meio de uma sessão suspeita (nos logs fornecidos há eventos de outros processos durante a sessão de `rfaria`, por exemplo falhas SSH de `198.51.100.38` às 21:44).
+  - **Alterações de contas:** contas criadas (`useradd`) e passwords alteradas (`passwd`), os dois tipos de alteração referidos no enunciado. Outros comandos de contas (`usermod`, `userdel`, grupos) não são tratados. Procuram-se em **todo** o log, porque é assim que se encontram as contas criadas.
+  - **Fonte: as linhas do próprio `useradd`/`passwd`, não as do `sudo`.** Cada alteração aparece duas vezes no log:
+
+    ```
+    21:40:43 sudo: rfaria : TTY=pts/2 ; ... COMMAND=/usr/sbin/useradd -o -u 0 -g 0 -M -d /root -s /bin/bash sysupdate
+    21:40:44 useradd[35590]: new user: name=sysupdate, UID=0, GID=0, home=/root, shell=/bin/bash, from=/dev/pts/2
+    ```
+
+    A linha `sudo` mostra o que foi **pedido** e por quem, e já está em `SUDO_RESULTS`. A linha `useradd[…]` confirma que a alteração **aconteceu**, com os valores efetivos (`UID=0`) num formato fixo `chave=valor`, mais fácil de ler do que as opções do comando (`-o -u 0`). Também apanha alterações feitas sem `sudo`, por exemplo por uma conta que já tem UID 0.
+  - **Escolha das linhas pelo 3.º campo (o processo):** `useradd[…]` com `new user:` e `passwd[…]` com `password changed for`. Uma linha `sudo: … COMMAND=/usr/sbin/useradd …` tem `sudo:` no 3.º campo e não conta duas vezes; linhas como `useradd[…]: new group:` ou `passwd[…]: … authentication failure` também ficam de fora.
+  - **Extração dos valores:** no `useradd`, cada campo a partir do 6.º perde a vírgula final (`sub`). `name=` e `UID=` vão para colunas próprias e o resto (`GID`, `home`, `shell`, `from`) fica em `details`, separado por espaços, para as vírgulas do log não partirem o CSV. No `passwd`, a conta é o último campo.
+  - **Quem fez a alteração (coluna `by`):** a linha `useradd`/`passwd` não diz quem a fez. É atribuída à conta seguida que tem uma sessão aberta nesse momento; se houver várias, à aberta mais recentemente (a de maior número). Se nenhuma conta seguida tiver uma sessão aberta, fica `-` e o relatório mostra `unknown`. Não se usou o terminal (`from=/dev/pts/2` = `TTY=pts/2` do `sudo`) porque a linha do `passwd` não o tem.
+  - **Aviso de UID 0:** uma conta criada com `UID=0` que não seja `root` tem os mesmos privilégios que o root (é o caso de `sysupdate` nos logs fornecidos). O relatório acrescenta um `WARNING` nesse caso.
+  - **Um awk, três resultados:** o awk escreve três tipos de linha, com o tipo na 1.ª coluna (`session,…`, `sudo,…` e `account,…`). Um `case` em bash separa-as pelo prefixo (`${line%%,*}`) e guarda o resto (`${line#*,}`) no array global certo:
+    - `SESSION_RESULTS` (`user,origin,ip,start,end`): `start` é o timestamp do login e `end` o do `session closed`, ou `-`.
+    - `SUDO_RESULTS` (`user,origin,time,session,command`): `session` é o `start` da sessão SSH do user aberta no momento do comando (liga o comando a uma linha de `SESSION_RESULTS`), ou `-`; usada pela timeline. O comando fica na última coluna porque pode ter vírgulas; o `read` dá à última variável o resto da linha.
+    - `ACCOUNT_RESULTS` (`time,action,account,uid,by,details`, com `action` = `created` ou `password` e `-` nas colunas que não se aplicam), por ordem cronológica.
+
+    Cada secção vazia tem uma mensagem explícita (por exemplo "No sessions of accounts created in the log." ou "No account changes detected.").
+  - **Evolução:** a primeira versão guardava só a sessão aberta pelo login detetado (um awk por login, que parava no `session closed`) e tratava as alterações de contas numa função à parte, sem autor. Com o texto completo da 3.6 ("its sessions", "any account created in the log", "the account changes it made"), passou a seguir todas as sessões das contas da 3.4 e das contas criadas, e a atribuir cada alteração a uma conta. Juntar as duas funções num só awk permitiu acrescentar as contas criadas ao conjunto durante a leitura. Foi assim que a sessão `sftp` de `sysupdate` a partir de `192.0.2.80` (30/10, 03:12), que antes não aparecia em nenhuma secção, passou a ser reportada.
+- **Timeline (3.6, `build_timeline`):** "one line per key event, in time order, for the whole period". Interpretação: um resumo cronológico do incidente, não uma cópia do log. Cada linha é um evento-chave de uma das secções anteriores, e o período é o log inteiro (26 a 30/10 nos logs fornecidos), para se ver a sequência completa: brute force, spray (que já testava `rfaria`), login de `rfaria` depois de 43 falhas, comandos `sudo` e criação de `sysupdate`, e o login de `sysupdate` no dia seguinte.
+  - **Não lê os logs:** junta eventos dos arrays de resultados (`BRUTE_RESULTS`, `SPRAY_RESULTS`, `SUCCESS_RESULTS`, `SESSION_RESULTS`, `SUDO_RESULTS`, `ACCOUNT_RESULTS`), por isso é sempre coerente com as outras secções. Cada evento é uma linha `time,description`; no fim ordena-se com `LC_ALL=C sort -s -t, -k1,1`. Os timestamps estão todos em `+00:00`, por isso a ordem alfabética é a cronológica, e o `-s` mantém a ordem de inserção nos empates. O resultado vai para `TIMELINE_RESULTS`.
+  - **Eventos incluídos:** início e fim do período (1.ª e última linha de `EVENTS_FILE`); início e fim de cada brute force (com n.º de falhas e top usernames) e os logins com sucesso desse IP; início e fim de cada password spray (com n.º de usernames); cada login da 3.4; o fim da sessão aberta por esse login (o início já é a linha do login); cada comando `sudo` nessa sessão; cada alteração de conta (com `by` e o aviso de UID 0); o início e o fim de todas as sessões das contas criadas e todos os seus `sudo`.
+  - **Atividade que parece legítima fica de fora**, para a timeline mostrar só o incidente (continua nas secções próprias):
+    - as sessões normais das contas da 3.4 (as 4 sessões de `rfaria` a partir de `10.20.3.14`) e os `sudo` corridos nelas. Uma sessão de uma conta suspeita só entra se começou num login da 3.4 (o `start` da sessão é igual ao `time` do login); um `sudo` só entra se a coluna `session` aponta para uma dessas sessões. Assim o filtro é uma comparação de igualdade de texto, sem comparar datas;
+    - os logins root da 3.5 (todos de `10.20.5.5`, por volta das 01:30, com chave pública, todos os dias), que parecem um job legítimo.
+- **Performance (<30s on VM):** cada ficheiro é lido uma vez, ordenado uma vez, e os eventos SSH são extraídos uma vez; cada deteção faz depois só um `sort` e uma passagem de awk. Com os logs fornecidos, o script completo demora ≈0,2 s (medido com `time` numa máquina de desenvolvimento; falta medir na VM do curso).
+- **Known limitations:**
+  - **`mktime` não é POSIX:** existe no `gawk` e no `mawk` 1.3.4 (o `awk` por omissão no Ubuntu), e o script foi testado com os dois, com o mesmo resultado. Pode não existir noutras implementações de awk. Com a extração única, só é usado num sítio.
+  - **Erros nos pipelines das deteções não são detetados:** o pipeline corre dentro de `mapfile … < <( … )`, e o `set -e`/`pipefail` não apanham falhas de comandos numa *process substitution*. Se o awk falhar, o resultado é igual a "nenhum brute force detetado".
+  - **Brute force e password spray — ordem do output:** os IPs aparecem por ordem alfabética (a do `sort`), não por ordem cronológica do ataque.
+  - **Formato de `SSH_FILE` partilhado:** as deteções dependem da ordem das colunas. Se o formato mudar, todas as deteções têm de ser revistas; por isso o formato está documentado num só sítio, no topo do script.
+  - **Sucesso depois de falhas — IP habitual simplificado:** o IP habitual é só o do 1.º sucesso. Um utilizador que entra de dois sítios (por exemplo, escritório e VPN) só tem um deles como habitual. Se o 1.º sucesso de uma conta já for do atacante, esse IP passa a ser o "habitual". Os logins com chave pública contam como sucesso para definir o IP habitual.
+  - **Sessões — sessão que não fecha:** se o log acabar antes do `session closed` (por exemplo, a sessão ainda estava aberta quando o log rodou), o fim fica `-`, e essa sessão conta como aberta para a atribuição (`by`) das alterações de contas até ao fim do log.
+  - **Alterações de contas — atribuição por sessão aberta:** se duas contas seguidas tiverem sessões abertas ao mesmo tempo, a alteração vai para a sessão aberta mais recentemente, que pode não ser a que a fez. Uma alteração feita por uma conta que não é seguida durante uma sessão de uma conta seguida é atribuída a esta.
+  - **Sessões — só SSH:** só se reconstroem sessões SSH (`Accepted`). Um login na consola ou com `su` de uma conta seguida não aparece como sessão (os seus comandos `sudo` aparecem).
+  - **Alterações de contas — `home`/`shell` com espaços:** os valores do `useradd` são separados por espaços em `details`; assume-se que `home` e `shell` não têm espaços (como é habitual em Linux).
+  - **Comandos — só `sudo`:** só se veem os comandos corridos com `sudo`, porque são os únicos que o `auth.log` regista. O que o atacante fez sem `sudo` (por exemplo, ler ficheiros a que `rfaria` já tinha acesso) não aparece.
+  - **Sucesso depois de falhas — falhas não são "consumidas":** a janela não é limpa depois de um sucesso. Se houver dois sucessos seguidos dentro de 60 minutos, as mesmas falhas contam para os dois e ambos são reportados.
 
 ---
 
@@ -72,15 +212,144 @@ O estado guarda as ocorrências da última execução. Para as expirações, a c
 ### 3.3 Part 3 Test Scenarios
 | Scenario | Setup | Expected Result | Observed Result (with evidence) |
 | :--- | :--- | :--- | :--- |
-| Brute force & password spray | ... | ... | ... |
-| Normal typo from usual IP (must NOT trigger) | ... | ... | ... |
+| Brute force — janela deslizante | `tests/part3/data/bf_sliding_window.txt`: IP `192.0.2.1` com falhas aos 0, 50, 55, 61 e 62s. `./part3/analyze_auth.sh -b 4 -w 1 tests/part3/data/bf_sliding_window.txt` | Detetado: as falhas dos 50 aos 62s são 4 em 12s, embora atravessem o fim da janela que começa aos 0s | `IP: 192.0.2.1`, `Failures: 5` |
+| Brute force — falhas espaçadas (must NOT trigger) | Mesmo ficheiro: IP `192.0.2.2` com uma falha a cada 50s (5 falhas) | Não detetado: cada intervalo é < 60s, mas nunca há 4 falhas dentro de 60s | `192.0.2.2` não aparece no output |
+| Brute force — menos de N falhas (must NOT trigger) | Mesmo ficheiro: IP `192.0.2.4` com 3 falhas em 2s | Não detetado | `192.0.2.4` não aparece no output |
+| Brute force — limite da janela | Mesmo ficheiro: IP `192.0.2.3` com 4 falhas que ocupam exatamente 60s | Detetado (limite inclusivo, `<=`) | `IP: 192.0.2.3`, `Failures: 4` |
+| Brute force — `invalid user` intercalado com outro IP | Mesmo ficheiro: IP `198.51.100.9` (`Failed password for invalid user admin`), com falhas no mesmo minuto que as de `192.0.2.1` | Detetado, sem misturar as falhas dos dois IPs | `IP: 198.51.100.9`, `Top usernames: admin(4)` |
+| Brute force — atravessa a meia-noite | Mesmo ficheiro: IP `203.0.113.7` com falhas das 23:59:50 às 00:00:10 do dia seguinte | Detetado | `IP: 203.0.113.7`, `Failures: 4` |
+| Brute force — logs fornecidos | `./part3/analyze_auth.sh tests/part3/data/auth.log*` (valores por omissão: `-b 10 -w 5`) | IPs com ≥ 10 falhas em 5 min | `203.0.113.118` (70 falhas, `admin(30) git(22) jenkins(14)`) e `203.0.113.45` (587 falhas, `root(362) admin(72) ubuntu(58)`). Resultado igual com `gawk` e `mawk` |
+| Brute force — nenhuma deteção | `./part3/analyze_auth.sh -b 1000 tests/part3/data/auth.log*` | Mensagem explícita, sem lista vazia | `No brute force attacks detected.` |
+| Brute force — logins com sucesso | `tests/part3/data/bf_successful_logins.txt`: IP `192.0.2.50` com um `Accepted publickey` às 09:00, 4 falhas das 10:00:00 às 10:00:30 e um `Accepted password` às 10:00:40; IP `192.0.2.60` só com um `Accepted password`. `./part3/analyze_auth.sh -b 4 -w 1 tests/part3/data/bf_successful_logins.txt` | `192.0.2.50` detetado com os 2 sucessos listados; `First attempt` é a 1.ª falha e não o sucesso das 09:00; `192.0.2.60` não aparece (não tem falhas) | `First attempt: 2026-10-30T10:00:00…`, `Successful logins: alice at …09:00:00…`, `alice at …10:00:40…`; `192.0.2.60` não aparece |
+| Brute force — sem logins com sucesso | Logs fornecidos, valores por omissão | Indicação explícita de que não houve sucessos | `Successful logins: none` nos 2 IPs detetados |
+| Username vazio | Logs fornecidos: `Failed password for invalid user  from 192.0.2.236` (dois espaços). `./part3/analyze_auth.sh -b 3 -w 1 tests/part3/data/auth.log*` | Contado como `<empty>`, separado do username real `user` | `192.0.2.236` com `Top usernames: <empty>(3) git(2)` |
+| Password spray — típico | `tests/part3/data/spray_test.txt`: IP `192.0.2.10` com 5 usernames, 1 tentativa cada, em 4 min (`root` e `alice` válidos; `admin`, `test` e `oracle` com `invalid user`). `./part3/analyze_auth.sh tests/part3/data/spray_test.txt` | Detetado, com os usernames separados em existentes e não existentes | `IP: 192.0.2.10`, `Existing on the server: root alice`, `Not existing on the server: admin test oracle` |
+| Password spray — muitas tentativas por username (must NOT trigger) | Mesmo ficheiro: IP `192.0.2.20` com 5 usernames e 4 tentativas cada (média 4) | Não detetado: média > 3. É um padrão de brute force e não de spray | `192.0.2.20` não aparece |
+| Password spray — espalhado no tempo (must NOT trigger) | Mesmo ficheiro: IP `192.0.2.30` com 5 usernames de 20 em 20 min (80 min) | Não detetado: nunca há 5 usernames em 60 min | `192.0.2.30` não aparece |
+| Password spray — média no limite | Mesmo ficheiro: IP `192.0.2.40` com 5 usernames e 3 tentativas cada (média = 3) | Detetado ("at most 3") | `IP: 192.0.2.40`, `Usernames: 5` |
+| Password spray — janela deslizante, dentro | Mesmo ficheiro: IP `192.0.2.50` com 4 usernames às 10:00:00 e o 5.º às 10:59:59 | Detetado | `IP: 192.0.2.50`, `Period: …10:00:00… -> …10:59:59…` |
+| Password spray — janela deslizante, fora (must NOT trigger) | Mesmo ficheiro: IP `192.0.2.60` com 4 usernames às 10:00:00 e o 5.º às 11:00:01 | Não detetado: os 4 primeiros já saíram da janela | `192.0.2.60` não aparece |
+| Password spray — logs fornecidos | `./part3/analyze_auth.sh tests/part3/data/auth.log*` | IPs que cumprem a regra da 3.3 | `198.51.100.23`, 26 usernames (25 existentes, 1 não existente: `rnogueira`). Resultado igual com `gawk` e `mawk` |
+| Sucesso depois de falhas — via IP | `tests/part3/data/success_after_failures.txt`: IP `192.0.2.10` com 5 falhas a 5 usernames diferentes e depois `Accepted password for carol` (`carol` sem falhas). `./part3/analyze_auth.sh tests/part3/data/success_after_failures.txt` | Detetado só pelo IP | `User: carol`, `IP: 192.0.2.10`, `Failures before: 5`, `Detected by: ip` |
+| Sucesso depois de falhas — via username, IP diferente | Mesmo ficheiro: `alice` com 5 falhas de `192.0.2.21` e sucesso de `192.0.2.22` | Detetado só pelo username (o IP do sucesso não tem falhas) | `User: alice`, `IP: 192.0.2.22`, `Failures before: 5`, `Detected by: user` |
+| Sucesso depois de falhas — as duas vias | Mesmo ficheiro: `dave` com 6 falhas e sucesso, tudo de `192.0.2.30` | Uma só linha, motivo `both` | `User: dave`, `Failures before: 6`, `Detected by: both` (aparece uma vez) |
+| Normal typo from usual IP (must NOT trigger) | Mesmo ficheiro: `erin` com 2 falhas de `10.0.0.5` e sucesso do mesmo IP | Não detetado (2 < 5) | `erin` não aparece. Com `-f 2` aparece, porque `erin` não tem sucesso anterior e por isso não tem IP habitual |
+| Typo do IP habitual + falhas de outro IP | Mesmo ficheiro: `henrique` entra de `10.0.0.8` às 21:00 (IP habitual). Às 22:00, 3 falhas de `10.0.0.8` e 3 de `192.0.2.70`; sucesso de `10.0.0.8` às 22:01 | Com `-f 5` não aparece: as 3 falhas do IP habitual são typo e sobram 3. Com `-f 3` aparece com as 3 falhas do outro IP | `-f 5`: `henrique` não aparece. `-f 3`: `User: henrique`, `Failures before: 3`, `Detected by: user` |
+| Muitas falhas do IP habitual (não é typo) | Mesmo ficheiro: `ivo` entra de `10.0.0.9` às 23:00; às 23:30, 6 falhas de `10.0.0.9` e sucesso do mesmo IP | Detetado: 6 > `TYPO_MAX`, as falhas contam todas | `User: ivo`, `Failures before: 6`, `Detected by: both` |
+| Sucesso depois de falhas — fora da janela (must NOT trigger) | Mesmo ficheiro: `frank` com 5 falhas das 16:00:00 às 16:00:40 e sucesso às 17:00:41 (60 min e 1 s depois da última) | Não detetado: todas as falhas já saíram da janela | `frank` não aparece |
+| Sucesso depois de falhas — limite da janela | Mesmo ficheiro: `grace` com 5 falhas das 19:00:00 às 19:00:40 e sucesso às 20:00:00 (exatamente 60 min depois da 1.ª) | Detetado (limite inclusivo) | `User: grace`, `Failures before: 5` |
+| Sucesso depois de falhas — limite `-f` | Mesmo ficheiro, `-f 7` | Nenhuma deteção (o máximo é 6, do `dave` e do `ivo`) | `No successful logins after failures detected.` |
+| Sucesso depois de falhas — logs fornecidos | `./part3/analyze_auth.sh tests/part3/data/auth.log*` | Logins que cumprem a regra da 3.4 | `rfaria` de `192.0.2.77` em `2026-10-29T21:36:47…`, 43 falhas, `Detected by: both`. Resultado igual com `gawk` e `mawk` |
+| Normal typo nos logs fornecidos (must NOT trigger) | Logs fornecidos, valor por omissão `-f 5`; comparar com `-f 3` | `mcosta` (4 falhas e sucesso do mesmo IP `10.20.1.12`) não aparece com `-f 5` | Com `-f 5` só aparece `rfaria`. Com `-f 3` aparecem `mcosta` (4 falhas, sem sucesso anterior, por isso sem IP habitual) e 3 logins de `root` de `10.20.5.5` com 3 falhas cada, `Detected by: user` |
 | Out-of-order `.gz` + plain logs | ... | ... | ... |
+| Regressão depois da extração única | Output guardado antes da alteração para 16 cenários (testes das 3.2, 3.3 e 3.4, logs fornecidos com `-b 1000`, `-b 3 -w 1`, `-f 1`, `-f 3`, `-s 3`, `-b 2 -w 60 -s 2 -f 1`, ficheiros em ordem trocada, `.gz` corrompido), com `gawk` e `mawk`; depois, `diff -r` com o output novo | Nenhuma diferença | 32 outputs iguais, incluindo o código de saída |
+| Ficheiros temporários apagados | `TMPDIR` apontado para uma pasta vazia; execução normal com os logs fornecidos e execução com um ficheiro vazio (erro fatal) | Pasta vazia no fim, nos dois casos | 0 ficheiros nos dois casos; o erro mostra `Error: No log entries found in the given files.` |
+| Mais ativos — top IPs | `tests/part3/data/most_active_test.txt`: `192.0.2.1` com 5 falhas; `192.0.2.2` com 2 falhas e 3 sucessos (total 5, empate); `192.0.2.3` com 1 falha e 1 sucesso; `10.0.0.1` com 1 sucesso; `192.0.2.4` com 1 falha. `./part3/analyze_auth.sh tests/part3/data/most_active_test.txt` | Ordem pelo total; empate desfeito pelo IP; IPs só com sucessos também aparecem | `192.0.2.1 5 0`, `192.0.2.2 2 3`, `192.0.2.3 1 1`, `10.0.0.1 0 1`, `192.0.2.4 1 0` |
+| Mais ativos — top usernames | Mesmo ficheiro: `bob` 5 falhas (de 2 IPs), `carol` 2, `root` 1, username vazio 1; `dave` só com sucessos | Só falhas contam; `dave` não aparece; `<empty>` contado; empate desfeito pelo nome | `bob 5`, `carol 2`, `<empty> 1`, `root 1`; `dave` não aparece |
+| Mais ativos — logins root por SSH | Mesmo ficheiro: `Accepted password for root` de `192.0.2.3`, `Accepted publickey for root` de `10.0.0.1`, uma falha de root e uma linha `sudo … USER=root` | Os 2 sucessos (password e publickey), por ordem cronológica; a falha e o `sudo` não aparecem | `…10:00:05… from 192.0.2.3`, `…11:00:00… from 10.0.0.1` |
+| Mais ativos — opção `-t` | Mesmo ficheiro, `-t 2` | Só os 2 primeiros de cada top; a lista de root não é afetada | `Top 2 IPs`: `192.0.2.1`, `192.0.2.2`; `Top 2 attacked usernames`: `bob`, `carol` |
+| Mais ativos — sem logins de root | `./part3/analyze_auth.sh tests/part3/data/spray_test.txt` | Mensagem explícita | `No root logins over SSH.` |
+| Mais ativos — logs fornecidos | `./part3/analyze_auth.sh tests/part3/data/auth.log*` | Tops coerentes com as deteções anteriores | Top IPs: `203.0.113.45` (587/0), `203.0.113.118` (70/0), `192.0.2.77` (43/1), `198.51.100.23` (34/0), `10.20.1.12` (4/6)…; top usernames: `root` 600, `admin` 121, `ubuntu` 77…; 5 logins de root, todos de `10.20.5.5` às ~01:30. Verificado com `grep` direto nos logs (587 falhas de `203.0.113.45`, 600 de `root`, as mesmas 5 linhas `Accepted … for root`). Resultado igual com `gawk` e `mawk` |
+| 3.6 — logs fornecidos: sessões e `sudo` | `./part3/analyze_auth.sh tests/part3/data/auth.log*` | Contas seguidas: `rfaria` (3.4) e `sysupdate` (criada no log). Todas as sessões de cada uma, separadas por grupo, e todos os seus comandos `sudo` | Contas suspeitas: 5 sessões de `rfaria` (4 de `10.20.3.14`, 26 a 29/10, e `…10-29T21:36:47… -> …21:53:48…` de `192.0.2.77`) e 7 comandos `sudo`, todos na sessão de `192.0.2.77`: `list`, `/usr/bin/cat /etc/shadow`, `/usr/sbin/useradd -o -u 0 -g 0 -M -d /root -s /bin/bash sysupdate`, `/usr/bin/passwd sysupdate`, `/usr/bin/tar czf /tmp/.syscache.tgz /srv/company/finance /srv/company/hr`, `/usr/bin/chmod -R o+rwx /srv/company/hr/payroll`, `/usr/bin/crontab -l`. Contas criadas: 1 sessão de `sysupdate`, `…10-30T03:12:30… -> …03:19:22…` de `192.0.2.80`; nenhum `sudo` (já tem UID 0). As falhas SSH de `198.51.100.38` a meio da sessão não entram. Verificado com `grep` (`Accepted … rfaria`, `sudo: rfaria`, `sysupdate`). Resultado igual com `gawk` e `mawk` |
+| 3.6 — logs fornecidos: alterações de contas | Mesmo comando | A conta `sysupdate` criada com UID 0 e a sua password alterada, ambas por `rfaria`, com aviso | `…21:40:44… account created: sysupdate (UID=0 GID=0 home=/root shell=/bin/bash from=/dev/pts/2) by rfaria`, `WARNING: UID 0 gives sysupdate root privileges`, `…21:41:15… password changed: sysupdate by rfaria`. São as únicas linhas `useradd[`/`passwd[` nos logs (verificado com `grep`) |
+| 3.6 — contas seguidas e atribuição | `tests/part3/data/what_happened_test.txt`: `ana` entra depois de 5 falhas (3.4) e cria `svc` (UID 0); `bob` (não seguido) faz `sudo` a meio da sessão de `ana`; `temp` é criada sem nenhuma sessão seguida aberta; mais tarde `svc` e `ana` têm sessões abertas ao mesmo tempo, `temp` muda de password nesse intervalo, `svc` altera a sua password e faz `sudo`; por fim `temp` entra e a sessão não fecha | `ana` em contas suspeitas, `svc` e `temp` em contas criadas; `sudo` de `bob` não aparece; `svc` criada `by ana`; `temp` criada `by unknown`; password de `temp` `by ana` (sessão aberta mais recentemente); password de `svc` `by svc`; sessão de `temp` com fim `-` | Contas suspeitas: 2 sessões de `ana`, `sudo` `useradd … svc`. Contas criadas: `svc` (12:00 -> 12:10), `temp` (13:00 -> `-`), `sudo` `/usr/bin/whoami` de `svc`. Alterações: `svc … by ana` + `WARNING`, `temp … by unknown`, `password changed: temp by ana`, `password changed: svc by svc`. Resultado igual com `gawk` e `mawk` |
+| 3.6 — nenhuma deteção | `./part3/analyze_auth.sh tests/part3/data/spray_test.txt` (sem logins da 3.4 nem contas criadas) | Mensagens explícitas | `No sessions of suspicious accounts (successful login after failures).`, `No sudo commands of …`, `No sessions of accounts created in the log.`, `No sudo commands of accounts created in the log.`, `No account changes detected.` |
+| Alterações de contas — UID normal vs UID 0 | `tests/part3/data/account_changes_test.txt`: `useradd` de `joao` (UID 1010) e de `backdoor` (UID 0), cada um seguido de `passwd` | As 4 alterações por ordem cronológica, com autor `unknown` (não há logins da 3.4); aviso só para `backdoor` | `account created: joao (UID=1010 …) by unknown`, `password changed: joao by unknown`, `account created: backdoor (UID=0 …) by unknown` + `WARNING`, `password changed: backdoor by unknown` (nenhuma conta seguida, por isso `unknown`) |
+| Alterações de contas — linhas parecidas (must NOT appear) | Mesmo ficheiro: `sudo … COMMAND=/usr/sbin/useradd …`, `sudo … COMMAND=/usr/bin/passwd …`, `useradd[…]: new group:`, `passwd[…]: … authentication failure`, `Failed password for invalid user useradd` | Nenhuma conta como alteração | Só as 4 alterações acima aparecem |
+| Regressão depois das alterações de contas | Logs fornecidos (com e sem opções) e os ficheiros de teste das secções 3.2–3.5, comparando com o commit anterior tudo exceto a secção nova | Nenhuma diferença | 12 outputs (6 cenários × `gawk`/`mawk`) iguais, incluindo o código de saída. `shellcheck` 0.11.0 sem avisos |
+| Regressão depois de juntar as funções da 3.6 | Os mesmos 6 cenários, comparando com o commit anterior as secções 3.2–3.5 | Nenhuma diferença | 12 outputs (6 cenários × `gawk`/`mawk`) iguais. `shellcheck` sem avisos |
+| Timeline — logs fornecidos | `./part3/analyze_auth.sh tests/part3/data/auth.log*` | Os eventos-chave do incidente, de 26 a 30/10, por ordem cronológica; sem as sessões normais de `rfaria` nem os logins root | 21 linhas: início dos logs (`…10-26T00:11:43…`), brute force de `203.0.113.45` (27/10, 02:13–02:41, 587 falhas), spray de `198.51.100.23` (28/10, 13:05–13:49), brute force de `203.0.113.118` (28/10, 16:40–16:43), login suspeito de `rfaria` (29/10, 21:36:47), os 7 `sudo` intercalados com `Account created: sysupdate (UID=0) by rfaria - WARNING…` e `Password changed: sysupdate by rfaria`, fecho da sessão (21:53:48), login e fecho de `sysupdate` (30/10, 03:12–03:19), fim dos logs (`…10-30T23:17:02…`). Resultado igual com `gawk` e `mawk` |
+| Timeline — sessão normal de uma conta suspeita (must NOT appear) | `tests/part3/data/what_happened_test.txt`: `ana` tem a sessão aberta pelo login da 3.4 (10:00:10) e outra às 12:00:30 | Só entra a sessão do login da 3.4 e o `sudo` corrido nela; as contas criadas (`svc`, `temp`) entram todas | A sessão das 12:00:30 de `ana` não aparece; aparecem o login suspeito, `sudo by ana: … svc`, o fecho às 10:05, e os logins de `svc` e `temp`, `sudo by svc: /usr/bin/whoami` e as 4 alterações de contas |
+| Top usernames — empates em `gawk` e `mawk` | `tests/part3/data/spray_test.txt` (IPs `192.0.2.20` e `192.0.2.40`, todos os usernames com a mesma contagem) e logs fornecidos com `-b 1 -w 60` (muitos empates) | Mesmo top nos dois awk, desempatado por ordem alfabética | Antes da correção: `u4 u5 u1` (`gawk`) vs `u2 u3 u4` (`mawk`). Depois: `u1(4) u2(4) u3(4)` e `d1(3) d2(3) d3(3)` nos dois. Output de 10 cenários (todos os ficheiros de teste e os logs fornecidos com várias opções) igual entre `gawk` e `mawk`; em relação ao commit anterior só muda a ordem dos usernames empatados; com os logs fornecidos e opções por omissão, o output é igual |
+| Regressão depois da timeline | Os 8 cenários anteriores (incluindo os da 3.6), comparando com o commit anterior tudo o que vem antes da timeline | Nenhuma diferença | 16 outputs (8 × `gawk`/`mawk`) iguais, incluindo o código de saída. `shellcheck` sem avisos |
+| Regressão depois da 3.5 | Os 16 cenários da regressão anterior, comparando só as secções 3.2–3.4 | Nenhuma diferença | 32 outputs iguais |
+| Corrupted `.gz` among valid files | `tests/part3/data/`: `random.txt` (texto aleatório), `valid.gz` (gzip válido), `corrupt.gz` (`valid.gz` cortado a meio). `./part3/analyze_auth.sh tests/part3/data/random.txt tests/part3/data/valid.gz tests/part3/data/corrupt.gz` | `corrupt.gz` ignorado com aviso; os outros dois aceites e a análise continua | `Warning: compressed file is corrupted, skipping: tests/part3/data/corrupt.gz`; a execução continua com os outros dois ficheiros (análise ainda por implementar) |
+| Valid text + valid `.gz` (must NOT warn) | Os mesmos `random.txt` e `valid.gz`. `./part3/analyze_auth.sh tests/part3/data/random.txt tests/part3/data/valid.gz` | Nenhum aviso; os dois ficheiros aceites | Nenhum aviso; a execução continua com os dois ficheiros (análise ainda por implementar) |
 
 ---
 
 ## 4. Incident Report (Part 3)
 
-*(1 a 2 páginas: o que aconteceu e quando, o que o atacante fez, que contas e dados foram afetados, o que o `audit.sh` da Parte 2 teria reportado na manhã seguinte, o que deve ser feito agora e o que o teria prevenido.)*
+Factos retirados de `part3/output.txt` e das linhas correspondentes dos logs analisados (26/10 00:11 → 30/10 23:17). Todas as horas em UTC.
+
+### 4.1 O que aconteceu e quando
+
+| Quando | Origem | Evento | Resultado |
+| :--- | :--- | :--- | :--- |
+| 27/10 02:13–02:41 | 203.0.113.45 | 587 passwords falhadas (sobretudo `root`, `admin`, `ubuntu`) | Nenhum login |
+| 28/10 13:05–13:49 | 198.51.100.23 | Password spray: 26 usernames, 25 existentes no servidor | Nenhum login |
+| 28/10 16:40–16:43 | 203.0.113.118 | 70 passwords falhadas (sobretudo `admin`, `git`, `jenkins`) | Nenhum login |
+| 29/10 20:58–21:36 | 192.0.2.77 | 43 tentativas falhadas, 38 delas a `rfaria` | Login de `rfaria` com password às 21:36:47 |
+| 29/10 21:36–21:53 | 192.0.2.77 | Sessão de `rfaria`: 7 comandos via `sudo` (ver 4.2) | Criada a conta `sysupdate` com UID 0 |
+| 30/10 03:12–03:19 | 192.0.2.80 | Login de `sysupdate` com password, sessão SFTP | Sessão com UID 0 |
+
+As 4 sessões anteriores de `rfaria` no período (26–29/10) vieram todas de 10.20.3.14.
+
+### 4.2 O que o atacante fez
+
+Comandos executados na sessão de `rfaria` (terminal `pts/2`), todos como `root` via `sudo`:
+
+| Hora | Comando | Efeito técnico |
+| :--- | :--- | :--- |
+| 21:37:05 | `sudo -l` | Lista os comandos que `rfaria` pode executar com `sudo` |
+| 21:38:20 | `cat /etc/shadow` | Mostra no terminal os hashes das passwords de todas as contas |
+| 21:40:43 | `useradd -o -u 0 -g 0 -M -d /root -s /bin/bash sysupdate` | Cria a conta `sysupdate` com UID e GID 0 (os de `root`), home `/root` e shell interativa (confirmado pelo `useradd` às 21:40:44) |
+| 21:41:08 | `passwd sysupdate` | Define a password de `sysupdate` (confirmado às 21:41:15) |
+| 21:43:33 | `tar czf /tmp/.syscache.tgz /srv/company/finance /srv/company/hr` | Cria em `/tmp` um arquivo comprimido com o conteúdo das duas diretorias |
+| 21:48:13 | `chmod -R o+rwx /srv/company/hr/payroll` | Dá leitura, escrita e execução a todos os utilizadores em `payroll` e em todo o seu conteúdo |
+| 21:49:09 | `crontab -l` | Lista as tarefas agendadas de `root` |
+
+A sessão terminou às 21:53:48. A 30/10 às 03:12:30, `sysupdate` entrou com password a partir de 192.0.2.80 e pediu o subsistema SFTP; a sessão terminou às 03:19:22.
+
+Os logs não mostram o output dos comandos, que ficheiros foram transferidos por SFTP, nem se `/tmp/.syscache.tgz` saiu do servidor.
+
+### 4.3 Contas e dados afetados
+
+| Conta | Situação |
+| :--- | :--- |
+| `rfaria` (UID 1005) | Login com password a partir de 192.0.2.77; executou comandos como `root` via `sudo` |
+| `sysupdate` (UID 0) | Criada na sessão de `rfaria`, com password definida; usada a partir de 192.0.2.80. Com UID 0 tem os mesmos privilégios de `root` |
+| Todas as contas | Hashes das passwords mostrados por `cat /etc/shadow` |
+
+| Dados | Efeito |
+| :--- | :--- |
+| `/etc/shadow` | Conteúdo lido |
+| `/srv/company/finance`, `/srv/company/hr` | Copiados para `/tmp/.syscache.tgz` |
+| `/srv/company/hr/payroll` | Leitura, escrita e remoção possíveis por qualquer utilizador local |
+| Sistema de ficheiros (SFTP de `sysupdate`) | Acesso com UID 0; o log não regista o que foi lido ou alterado |
+
+As restantes contas visadas (`root`, `admin`, `ubuntu`, etc., e os 25 usernames do password spray) não tiveram nenhum login com sucesso a partir dos IPs dos ataques. Os logs não mostram o estado atual do servidor (se `/tmp/.syscache.tgz` ainda existe e se as permissões de `payroll` continuam alteradas); ver 4.4.
+
+### 4.4 O que o `audit.sh` (Parte 2) teria reportado na manhã seguinte
+
+Execução de 30/10 às 06:00 (`audit.cron`), comparada com a de 29/10 às 06:00, anterior ao login de `rfaria` a partir de 192.0.2.77:
+
+| Ocorrência `NEW` | Causa (4.2) |
+| :--- | :--- |
+| `[UID0] sysupdate: UID 0` | `useradd -o -u 0 ... sysupdate` |
+| `[WORLDW] /srv/company/hr/payroll: escrita permitida a outros`, e uma linha igual por cada ficheiro e subpasta dentro de `payroll` | `chmod -R o+rwx /srv/company/hr/payroll` |
+| `[POLICY] /srv/company/hr/payroll: permissões concedidas a others (...)`, e `[POLICY] <ficheiro>: acesso de others (rwx)` por cada ficheiro dentro de `payroll` | `chmod -R o+rwx /srv/company/hr/payroll` (a política exige `other::---`) |
+
+Os checks de `sudo`, passwords vazias e expiração não têm ocorrências novas: os logs não mostram alterações a grupos, a password de `sysupdate` foi definida às 21:41:15 e a conta foi criada sem prazo de expiração (assumindo o `PASS_MAX_DAYS` por omissão do Ubuntu).
+
+O `audit.sh` verifica o estado do sistema, não os logs, por isso não reporta o login de `rfaria`, o `cat /etc/shadow`, a sessão SFTP nem o `crontab -l`. Também não reporta `/tmp/.syscache.tgz`: está fora de `/srv/company` e, com a `umask` por omissão, o `tar` cria-o com modo `0644`, que não é world-writable.
+
+### 4.5 O que deve ser feito agora
+
+*(Contenção, erradicação e recuperação.)*
+
+### 4.6 O que o teria prevenido
+
+| Facto | Medida |
+| :--- | :--- |
+| `rfaria` entrou com password, a partir de um IP externo, depois de 43 falhas do mesmo IP | Só autenticação por chave (`PasswordAuthentication no`); bloqueio após N falhas (`fail2ban` por IP, `pam_faillock` por conta) |
+| As 4 sessões anteriores de `rfaria` vieram de 10.20.3.14 | SSH só a partir da rede interna ou VPN (firewall ou `AllowUsers rfaria@10.20.*`); alerta para login a partir de um IP nunca usado por essa conta (a deteção 3.4, mas em tempo real) |
+| `rfaria` executou `useradd`, `cat /etc/shadow`, `tar` e `chmod` como `root` | `sudo` com privilégio mínimo: só os comandos necessários à função de cada utilizador |
+| Criada `sysupdate` com UID 0 | `auditd` em `/etc/passwd` e `/etc/shadow` com alerta imediato; o `audit.sh` das 06:00 só a reportaria cerca de 8 h depois |
+| `sysupdate` entrou com password a partir de 192.0.2.80 | `AllowGroups` no `sshd` com uma lista fechada de grupos: uma conta nova fora desses grupos não entraria |
+| `chmod -R o+rwx` em `payroll` | Monitorização de integridade (`AIDE` ou `auditd`) em `/srv/company` |
+
+Os IPs dos ataques de 27 e 28/10 são diferentes de 192.0.2.77: bloqueá-los na altura não teria impedido o login de 29/10.
 
 ---
 
@@ -88,15 +357,4 @@ O estado guarda as ocorrências da última execução. Para as expirações, a c
 
 *(Explicar que ferramentas de IA foram usadas e para quê, pelo menos **3 casos concretos** de `docs/ai_mistakes.md`, e como verificaram código que não escreveram manualmente.)*
 
-### Caso 2 — Parte 2 · ACL individual de escrita
-
-**Ferramenta e pedido.** Usámos o ChatGPT para desenvolver a verificação das ACL das pastas, incluindo a exceção de leitura dos estagiários.
-
-**Excerto proposto.** O ciclo de deteção de entradas adicionais só atribuía significado às entradas nomeadas de grupo:
-```bash
-if [[ "$line" =~ ^(default:)?group:[^:]+:[rwx-]{3}$ ]]; then
-```
-
-**Falha e verificação.** Numa pasta temporária com máscara rwx, o teste atribuiu user:nobody:rwx. Esperávamos um alerta POLICY, mas a função produziu saída vazia. O diff identificou a linha em falta e a bateria devolveu 1, apesar de os 36 testes anteriores passarem (fig. 28).
-
-**Correção e resultado.** Acrescentámos uma verificação de escrita para entradas individuais nomeadas, tanto de acesso como por omissão. Repetimos o teste original, acrescentámos o caso por omissão e um controlo com ambas as permissões em r-x. Os 39 testes passaram com código 0 (fig. 29).
+- **[Parte 3] Top usernames do brute force não determinístico** (detalhe em `docs/ai_mistakes.md`, Caso 1): para escolher os 3 usernames mais tentados por IP, a IA percorreu o array com `for (u in users)` e ficou com o primeiro máximo (`users[u] > users[best]`). A ordem de `for … in` não está definida em awk, por isso, com empates, `gawk` e `mawk` escolhem usernames diferentes (em `spray_test.txt`, IP `192.0.2.20`: `u4 u5 u1` vs `u2 u3 u4`). Foi descoberto ao comparar o output dos dois awk para todos os ficheiros de teste; os logs fornecidos não têm empates no top 3 e não o mostravam. Correção: desempatar pelo username (`users[u] == users[best] && u < best`), e passar a comparar o output de `gawk` e `mawk` para todos os ficheiros de teste nas regressões.

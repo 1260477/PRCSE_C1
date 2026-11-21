@@ -8,9 +8,9 @@
 
 | Name | Student Number | Responsibilities |
 | :--- | :--- | :--- |
-| Hugo Filipe Correia Costeira | *(Número)* | Part 1 (`provision.sh`), Part 1 tests, Approach & Test Scenarios (Part 1), AI Case 1 |
+| Hugo Filipe Correia Costeira | 1260477 | Part 1 (`provision.sh`), Part 1 tests, Approach & Test Scenarios (Part 1), AI Case 1 |
 | José Paulo Ferreira De Sousa | 1241915 | Part 2 (`audit.sh`, `audit.cron`), Part 2 tests, Approach & Test Scenarios (Part 2), AI Case 2 |
-| José Luis Figueiredo De Freitas | *(Número)* | Part 3 (`analyze_auth.sh`, `output.txt`), Part 3 tests, Incident Report, AI Case 3 |
+| José Luis Figueiredo De Freitas | 1261886 | Part 3 (`analyze_auth.sh`, `output.txt`), Part 3 tests, Incident Report, AI Case 3 |
 
 ---
 
@@ -19,12 +19,12 @@
 *(Sem dumps de código: explicar como funciona, principais decisões + porquê, e limitações conhecidas. Mostrar apenas as linhas essenciais.)*
 
 ### 2.1 Part 1 — Provisioning (`provision.sh`)
-- **Input parsing & validation:** ...
-- **Username generation & collision handling:** ...
-- **Accounts, passwords, expiry & `sudo`:** ...
-- **Shared folders, ACLs, setgid, interns & parent-folder traversal:** *(explicar explicitamente a permissão mínima para alcançar subpastas sem listar o pai)*
-- **Idempotency, `--dry-run` & offboarding:** ...
-- **Known limitations:** ...
+- **Input parsing & validation:** `provision.sh` segue um modelo *fail-fast* na estrutura e resiliente nos registos de RH. Valida privilégios de `root` (dispensados em `--dry-run`), existência/legibilidade dos CSVs e cabeçalhos exatos após remoção em memória de UTF-8 BOM (`\xef\xbb\xbf`) e quebras CRLF (`\r\n`). Erros estruturais ou regras inválidas em `access-policy.csv` abortam com `exit 1` antes de alterar o sistema; linhas individuais inválidas em `employees.csv` (campo em falta, departamento desconhecido, `role`/`status` inválidos, `employee_id` duplicado ou `intern` sem `end_date` válido) são rejeitadas com aviso (n.º da linha e motivo), continuando o processamento e terminando com `exit 2`. Os departamentos válidos são extraídos dinamicamente das pastas de topo `/srv/company/<nome>` presentes na política (excluindo `public`), sem qualquer lista *hard-coded*.
+- **Username generation & collision handling:** O username base junta a 1.ª letra do `first_name` à última palavra do `last_name`, em minúsculas e apenas `a-z`, usando `LC_ALL=C.UTF-8 iconv -f UTF-8 -t ASCII//TRANSLIT` para transliterar acentos de forma independente do *locale*. Contas já geridas são reconhecidas pelo `employee_id` no campo GECOS (`First Last (E1001)`), preservando o username mesmo se o nome mudar. Colisões são resolvidas por ordem do CSV (`2`, `3`, …) face a `/etc/passwd` e ao histórico persistente `/var/lib/provision/usernames.txt`, garantindo que um username nunca é reutilizado após offboarding.
+- **Accounts, passwords, expiry & `sudo`:** Cria os grupos em falta (departamentos + `employees` + `managers`). Novas contas recebem home `/home/<username>` (`0700`), shell `/bin/bash`, password aleatória de 16 caracteres (via `/dev/urandom`, guardada apenas em `/root/initial-passwords.txt` com permissões `0600` e nunca registada em logs/ecrã) e troca obrigatória no 1.º login (`chage -d 0`). Todas as contas têm expiração de password de 180 dias com aviso 14 dias antes (`chage -M 180 -W 14`). Contas `intern` recebem expiração de conta em `<end_date>` (`chage -E`), removida (`chage -E -1`) se passarem a `staff`/`manager`. A pertença aos grupos e a `sudo` (exclusiva a membros `active` não-`intern` de `it`) é sincronizada de forma exata, adicionando e removendo membros conforme necessário.
+- **Shared folders, ACLs, setgid, interns & parent-folder traversal:** Cada pasta da política é criada com dono `root`, grupo igual ao primeiro grupo com `rwx` na política (ou `root` se não houver), bit `setgid` ativo (`2770`) e `others` sem acesso (`---`). São aplicadas ACLs exatas de acesso e *default ACLs* para herança, propagando também aos ficheiros e subpastas existentes (excluindo subpastas que tenham regra própria na política). Quando um grupo tem acesso a uma subpasta (ex.: `/srv/company/hr/payroll` para `finance`) sem ter acesso à pasta-pai (`/srv/company/hr`), a pasta-pai recebe apenas travessia mínima (`g:<grupo>:--x`), impedindo a listagem do diretório pai. Para `intern`, quando o seu departamento tem `rwx` numa pasta, é aplicada uma ACL individual `u:<username>:r-x` (e *default ACL* `r-x`) para restringir a escrita sem bloquear a leitura.
+- **Idempotency, `--dry-run` & offboarding:** Todas as operações comparam o estado atual antes de aplicar alterações, registando uma linha por alteração em `/var/log/provision.log` (ou imprimindo `[DRY-RUN] ...` sem tocar no sistema). No offboarding (`status=left` com conta existente), a conta é bloqueada/expirada e sessões ativas são terminadas, a home é arquivada em `/srv/archive/<username>_<id>_<YYYY-MM-DD>.tar.gz` (`0600` só `root`) com verificação de integridade (`tar -tzf`) antes de apagar ficheiros, os ficheiros do utilizador em `/srv/company` passam para dono `root` (mantendo o grupo), e a crontab, conta e home são removidas. Utilizadores geridos que desaparecem do CSV sem `status=left` não são removidos, gerando apenas um aviso.
+- **Known limitations:** A verificação completa de `chage` e do ficheiro `/root/initial-passwords.txt` exige execução como `root` (em `--dry-run` sem `root`, alterações a `chage` são simuladas por falta de leitura de `/etc/shadow`). Além disso, o script assume que os nomes das pastas de departamento em `/srv/company/<nome>` coincidem com o nome do grupo correspondente na política, conforme o contrato acordado com a Parte 2.
 
 ### 2.2 Part 2 — Daily Security Audit (`audit.sh` & `audit.cron`)
 
@@ -51,9 +51,10 @@ O estado guarda as ocorrências da última execução. Para as expirações, a c
 ### 3.1 Part 1 Test Scenarios
 | Scenario | Setup | Expected Result | Observed Result (with evidence) |
 | :--- | :--- | :--- | :--- |
-| Valid provisioning + idempotency | ... | ... | ... |
-| Invalid CSV rows (rejected) | ... | ... | ... |
-| Offboarding (`left` vs missing from CSV) | ... | ... | ... |
+| CLI, BOM/CRLF & CSV validation (`test_phase0.sh`, `test_phase1.sh`) | CSVs com UTF-8 BOM, CRLF, espaços, cabeçalhos trocados, campos em falta, `role`/`status`/departamento inválidos, IDs duplicados, `intern` sem data válida e `employees.csv` real | Erros estruturais devolvem `exit 1`; linhas individuais inválidas são rejeitadas com aviso e `exit 2`; usernames tratam acentos/colisões por ordem | 14/14 testes da Fase 0 e 17/17 da Fase 1 aprovados; na VM com `employees.csv` devolveu `exit 2` com exatamente 4 linhas rejeitadas (34, 35, 36, 40) |
+| Accounts, groups, `chage`, `sudo` & idempotency (`test_phase2.sh`, VM) | Execução real (`sudo`) com `employees.csv` seguida de 2.ª execução idêntica em Ubuntu 26.04 LTS | 33 contas criadas com `/root/initial-passwords.txt` (`0600`), `chage` (180/14 e `-E` em `intern`), `sudo` só para `it` ativo não-`intern`; 2.ª execução com 0 alterações | 22/22 testes da Fase 2 aprovados; na VM, 33 linhas em `/root/initial-passwords.txt` (`0600`), `sudo` apenas com `hcosteira,jpereira,tmartins,hferreira`, `dmoreira` com `Jan 31, 2027`, e 2.ª execução devolveu `No changes needed (already up to date).` (`exit 2`) |
+| Shared folders, ACLs, traversal & Parte 2 (`test_phase4.sh`, `test_phase5_synthetic.sh`, VM) | `/srv/company/hr` e `hr/payroll`, 2.º conjunto sintético (`synth_mkt`, `synth_ops`, `synth_rnd`) e execução de `part2/audit.sh --full` após provisionamento | `root:<1.º rwx>` e `2770`; travessia `--x` na pasta-pai sem default ACL; exceção `r-x` para `intern`; 0 falsos positivos no `audit.sh` | 14/14 (Fase 4) e 15/15 (sintético) aprovados; na VM, `getfacl` confirmou `flags: -s-`, `group:finance:--x` em `hr` e `user:fmarques:r-x`; `audit.sh --full` devolveu `exit 0` com **0 alertas de política/ACLs** (apenas `SUDO` de `hcosteira`, `PWDEXP` da troca obrigatória inicial e `ACCTEXP` de `hcardoso` a 6 dias) |
+| Updates & Offboarding (`employees_v2.csv`, `test_phase3.sh`, VM) | Execução real com `employees_v2.csv` após `employees.csv` | `E1008` atualiza GECOS mantendo `mlopes`; `E1004` sai de `it`/`sudo` para `engineering`; `E1013` entra em `managers`; `E1017` remove expiração; `E1011`/`E1012` arquivados e removidos; `E1030` apenas avisa | 8/8 testes da Fase 3 aprovados; na VM, `mlopes` e `tcoelho` mantidos em `passwd`, `slima`/`pramos` removidos com `.tar.gz` (`0600`) em `/srv/archive/`, `dmoreira` com `Account expires: never` e `tmartins` removido de `sudo` |
 
 ### 3.2 Part 2 Test Scenarios
 

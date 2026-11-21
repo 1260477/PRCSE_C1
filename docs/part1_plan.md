@@ -74,9 +74,9 @@
 ---
 
 ## Fase 5 — Testes e Validação (em `tests/part1/`)
-- [ ] **5.1** Criar testes unitários/automatizados em `tests/part1/` para parsing e validação (BOM, CRLF, espaços, acentos, colisões, duplicados, `intern` sem data, departamento desconhecido).
-- [ ] **5.2** Testar `--dry-run` com `employees.csv` + `access-policy.csv` (confirmar exit code `2` e zero alterações no sistema).
-- [ ] **5.3** *(Após confirmar snapshot da VM)* Testar execução real com `employees.csv` e verificar utilizadores, grupos, `chage`, `sudo`, passwords e ACLs.
-- [ ] **5.4** Testar **idempotência**: correr 2.ª vez com `employees.csv` e confirmar zero alterações + mensagem respetiva.
-- [ ] **5.5** Testar `employees_v2.csv`: mudança de nome (`E1008`), mudança de departamento (`E1004`), mudança de role (`E1013`, `E1017`), offboarding (`E1011`, `E1012`) e aviso de desaparecimento (`E1030`).
-- [ ] **5.6** Testar com um **2.º conjunto sintético** de ficheiros (outros nomes, departamentos e pastas) para comprovar ausência de hard-coding.
+- [x] **5.1** Criar testes unitários/automatizados em `tests/part1/` para parsing e validação (BOM, CRLF, espaços, acentos, colisões, duplicados, `intern` sem data, departamento desconhecido).
+- [x] **5.2** Testar `--dry-run` com `employees.csv` + `access-policy.csv` (confirmar exit code `2` e zero alterações no sistema).
+- [x] **5.3** *(Após confirmar snapshot da VM)* Testar execução real com `employees.csv` e verificar utilizadores, grupos, `chage`, `sudo`, passwords e ACLs.
+- [x] **5.4** Testar **idempotência**: correr 2.ª vez com `employees.csv` e confirmar zero alterações + mensagem respetiva.
+- [x] **5.5** Testar `employees_v2.csv`: mudança de nome (`E1008`), mudança de departamento (`E1004`), mudança de role (`E1013`, `E1017`), offboarding (`E1011`, `E1012`) e aviso de desaparecimento (`E1030`).
+- [x] **5.6** Testar com um **2.º conjunto sintético** de ficheiros (`test_phase5_synthetic.sh`, 15/15) para comprovar ausência de hard-coding e validar integração real com `part2/audit.sh` (0 desvios de política/ACLs/contas geridas).
